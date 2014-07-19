@@ -19,6 +19,7 @@ struct TreeParam
     std::string gbdt_loss;// TODO support it
 
     std::string training_sample;
+    std::string training_sample_format;
     std::string model;
 
     TreeParam() {}

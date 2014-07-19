@@ -25,6 +25,7 @@ static void print_usage(const char * program, FILE * fp)
         "        gbdt_sample_rate = 0.9\n"
         "        gbdt_loss = ls\n"
         "        training_sample = input\n"
+        "        training_sample_format = liblinear\n"
         "        model = output.json\n"
         "        -------------------------\n");
 }
@@ -61,6 +62,15 @@ private:
         }
         else if (key == "training_sample")
             param->training_sample = value;
+        else if (key == "training_sample_format")
+        {
+            if (value != "liblinear" && value != "gbdt")
+            {
+                fprintf(stderr, "invalid \"training_sample_format\", it should be \"liblinear\" or \"gbdt\"\n");
+                return -1;
+            }
+            param->training_sample_format = value;
+        }
         else if (key == "model")
             param->model = value;
         return 0;
@@ -163,6 +173,7 @@ int parse_tree_param(int argc, char ** argv, TreeParam * param)
     param->gbdt_sample_rate = 0.9;
     param->gbdt_loss = "ls";
     param->training_sample = "input";
+    param->training_sample_format = "liblinear";
     param->model = "output.json";
 
     std::string config_filename;

@@ -8,8 +8,16 @@ int main(int argc, char ** argv)
         return 1;
 
     XYSet set;
-    if (load_liblinear(param.training_sample.c_str(), &set) == -1)
-        return 2;
+    if (param.training_sample_format == "liblinear")
+    {
+        if (load_liblinear(param.training_sample.c_str(), &set) == -1)
+            return 2;
+    }
+    else
+    {
+        if (load_gbdt(param.training_sample.c_str(), &set) == -1)
+            return 2;
+    }
 
     GBDTPredictor predictor;
     FILE * input = xfopen(param.model.c_str(), "r");
