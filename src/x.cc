@@ -8,6 +8,17 @@ FILE * yfopen(const char * filename, const char * mode)
     return fp;
 }
 
+FILE * xfopen(const char * filename, const char * mode)
+{
+    FILE * fp = fopen(filename, mode);
+    if (fp == 0)
+    {
+        fprintf(stderr, "open \"%s\" failed\n", filename);
+        exit(1);
+    }
+    return fp;
+}
+
 void * xmalloc(size_t size)
 {
     void * p = malloc(size);

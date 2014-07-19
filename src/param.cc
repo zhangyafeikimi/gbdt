@@ -82,7 +82,7 @@ private:
     int load_line(const char * line, std::string * key, std::string * value)
     {
         std::string line_bak = line;
-        line_bak.pop_back();// pop \n
+        line_bak.resize(line_bak.size() - 1);// pop \n
         size_t pos = line_bak.find_first_of('=');
         if (pos == std::string::npos)
             return -1;

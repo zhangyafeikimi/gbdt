@@ -1,4 +1,37 @@
-gbdt
+.DS_Store
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+
+# Visual Studio
+*sdf
+*.suo
+*.ncb
+*.user
+Debug
+Release
+
+# scons
+.sconf_temp/
+.sconsign.dblite
+*test
+*log
+
+gbdt-train
+gbdt-predict
+gbdt-benchmark
+
 output.json
 output.cc
 output.h

@@ -20,6 +20,8 @@ struct TreeParam
 
     std::string training_sample;
     std::string model;
+
+    TreeParam() {}
 };
 
 int parse_tree_param(int argc, char ** argv, TreeParam * param);

@@ -1,0 +1,47 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2012
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libgbdt", "libgbdt.vcxproj", "{3E841CBD-D279-40F5-9AE5-09C56D7A901C}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "gbdt-train", "gbdt-train.vcxproj", "{1F3AF578-AF9D-4757-89AC-C77FC96E7ABA}"
+	ProjectSection(ProjectDependencies) = postProject
+		{3E841CBD-D279-40F5-9AE5-09C56D7A901C} = {3E841CBD-D279-40F5-9AE5-09C56D7A901C}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "gbdt-predict", "gbdt-predict.vcxproj", "{26D0D81E-8823-4F7D-B2AC-870646D8C0FE}"
+	ProjectSection(ProjectDependencies) = postProject
+		{3E841CBD-D279-40F5-9AE5-09C56D7A901C} = {3E841CBD-D279-40F5-9AE5-09C56D7A901C}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "gbdt-benchmark", "gbdt-benchmark.vcxproj", "{FA914207-8151-4C17-B121-E4C612DFCC19}"
+	ProjectSection(ProjectDependencies) = postProject
+		{3E841CBD-D279-40F5-9AE5-09C56D7A901C} = {3E841CBD-D279-40F5-9AE5-09C56D7A901C}
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{3E841CBD-D279-40F5-9AE5-09C56D7A901C}.Debug|Win32.ActiveCfg = Debug|Win32
+		{3E841CBD-D279-40F5-9AE5-09C56D7A901C}.Debug|Win32.Build.0 = Debug|Win32
+		{3E841CBD-D279-40F5-9AE5-09C56D7A901C}.Release|Win32.ActiveCfg = Release|Win32
+		{3E841CBD-D279-40F5-9AE5-09C56D7A901C}.Release|Win32.Build.0 = Release|Win32
+		{1F3AF578-AF9D-4757-89AC-C77FC96E7ABA}.Debug|Win32.ActiveCfg = Debug|Win32
+		{1F3AF578-AF9D-4757-89AC-C77FC96E7ABA}.Debug|Win32.Build.0 = Debug|Win32
+		{1F3AF578-AF9D-4757-89AC-C77FC96E7ABA}.Release|Win32.ActiveCfg = Release|Win32
+		{1F3AF578-AF9D-4757-89AC-C77FC96E7ABA}.Release|Win32.Build.0 = Release|Win32
+		{26D0D81E-8823-4F7D-B2AC-870646D8C0FE}.Debug|Win32.ActiveCfg = Debug|Win32
+		{26D0D81E-8823-4F7D-B2AC-870646D8C0FE}.Debug|Win32.Build.0 = Debug|Win32
+		{26D0D81E-8823-4F7D-B2AC-870646D8C0FE}.Release|Win32.ActiveCfg = Release|Win32
+		{26D0D81E-8823-4F7D-B2AC-870646D8C0FE}.Release|Win32.Build.0 = Release|Win32
+		{FA914207-8151-4C17-B121-E4C612DFCC19}.Debug|Win32.ActiveCfg = Debug|Win32
+		{FA914207-8151-4C17-B121-E4C612DFCC19}.Debug|Win32.Build.0 = Debug|Win32
+		{FA914207-8151-4C17-B121-E4C612DFCC19}.Release|Win32.ActiveCfg = Release|Win32
+		{FA914207-8151-4C17-B121-E4C612DFCC19}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

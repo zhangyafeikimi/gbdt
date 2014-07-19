@@ -14,7 +14,7 @@ int main(int argc, char ** argv)
     GBDTTrainer trainer(set, param);
     trainer.train();
 
-    FILE * output = yfopen(param.model.c_str(), "w");
+    FILE * output = xfopen(param.model.c_str(), "w");
     trainer.save_json(output);
     fclose(output);
 

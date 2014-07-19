@@ -23,12 +23,12 @@ int main()
     GBDTTrainer trainer(set, param);
     trainer.train();
 
-    FILE * output = yfopen("output.json", "w");
+    FILE * output = xfopen("output.json", "w");
     trainer.save_json(output);
     fclose(output);
 
     GBDTPredictor predictor;
-    FILE * input = yfopen("output.json", "r");
+    FILE * input = xfopen("output.json", "r");
     predictor.load_json(input);
     fclose(input);
 
