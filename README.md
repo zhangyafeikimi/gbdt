@@ -15,8 +15,8 @@ Predicting
 --------
 >./gbdt-predict -c [configuration file]
 
-Configuration specification
----------------------------
+Configuration File
+------------------
 ###An Example
 
 >verbose = 1
@@ -52,16 +52,18 @@ All fields and values are case-sensitive.
 1, print extra information
 
 ####max_level
-Max level of a decision tree.
+Max level of all decision trees.
 
 ####max_leaf_number
-Max leaf node of a decision tree.
+Max number of leaf node in all decision trees.
 
 ####max_x_values_number
-Max unique feature values used when a tree node is being split.
+Max unique values of one feature used when a tree node is being split by this feature.
 
 ####leaf_threshold
-It should be in [0.0, 1.0]. It is not used in gbdt, used only in decision tree.
+It should be in [0.0, 1.0].
+
+It is not used in gbdt, used only in decision tree.
 
 ####gbdt_tree_number
 Number of trees.
@@ -79,11 +81,13 @@ LS and LAD loss are defined at **Friedman (February 1999)**
 
 > **NOTE:**
 >
-> LAD loss maybe numerical unstable and cause invalid feature importance.
+> LAD loss maybe numerical unstable and cause invalid feature importance. LS loss is numerically smoother.
 >
 > Training a GBDT model with LAD loss is slower then the one with LS loss.
 >
-> LS loss is numerically smoother and highly encouraged.
+> LAD loss is only suitable for binary classification.
+>
+> **All in all, LS loss is highly encouraged.**
 
 ####training_sample
 Filename of training samples.
@@ -91,7 +95,7 @@ Filename of training samples.
 ####training_sample_format
 Format of training sample, can be "liblinear" or "gbdt".
 
-**ml-gbdt** is fully compatible with liblinear format. An example is:
+**ml-gbdt** is fully compatible with [liblinear](http://www.csie.ntu.edu.tw/~cjlin/liblinear/) format. An example is:
 
 >+1 1:0.708333 2:1 3:1 4:-0.320755 5:-0.105023 6:-1 7:1 8:-0.419847 9:-1 10:-0.225806 12:1 13:-1
 
@@ -99,7 +103,7 @@ Format of training sample, can be "liblinear" or "gbdt".
 
 >+1 1:0.166667 2:1 3:-0.333333 4:-0.433962 5:-0.383562 6:-1 7:-1 8:0.0687023 9:-1 10:-0.903226 11:-1 12:-1 13:1
 
-Because GBDT is not suitable for sparse features, I have defined another format supporting category features and weights.
+While I have defined another format for some reasons below.
 
 An example of gbdt format is:
 
@@ -113,9 +117,9 @@ An example of gbdt format is:
 
 > 1 w:4 33 0 1793 341 18 0 181 0 0 0
 
--
 
-> **Some Explanation:**
+
+> **Some Explanations:**
 
 > The first line shows there are 10 features, the 2nd of which is a category feature, others are numerical features.
 
@@ -123,10 +127,20 @@ An example of gbdt format is:
 
 > Values of numerical features and "y" can be double floats or integers(treated as double float internally).
 
+> "y" can be 0/1 to model a binary classification problem(**NOTE**: liblinear is -1/1), or any real numbers for regression.
+
 > From the 2nd line on, the 1st column is the "y" values, others are ordered "x" values.
 
 > The 4th and 5th line contains "w:5.5", "w:4" respectively. 5.5 and 4 are weights of the two training samples.
 > Default weights are 1.0.
+
+> **Advantages:**
+
+> Category features.
+
+> Feature weights.
+
+> Classification and regression.
 
 
 ####model
@@ -145,10 +159,6 @@ It can be used to convert a model(json) to a c++ predicting function, so that an
 
 Reference
 ---------
-Friedman, J. H. "Greedy Function Approximation: A Gradient Boosting Machine." (February 1999)
+[Friedman, J. H. "Greedy Function Approximation: A Gradient Boosting Machine." (February 1999)](http://www-stat.stanford.edu/~jhf/ftp/trebst.pdf)
 
-http://www-stat.stanford.edu/~jhf/ftp/trebst.pdf
-
-Friedman, J. H. "Stochastic Gradient Boosting." (March 1999)
-
-https://statweb.stanford.edu/~jhf/ftp/stobst.pdf
+[Friedman, J. H. "Stochastic Gradient Boosting." (March 1999)](https://statweb.stanford.edu/~jhf/ftp/stobst.pdf)
