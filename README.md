@@ -86,10 +86,10 @@ LS and LAD loss are defined at **Friedman (February 1999)**
 > LS loss is numerically smoother and highly encouraged.
 
 ####training_sample
-Filename of training sample.
+Filename of training samples.
 
 ####training_sample_format
-Training sample format, can be "liblinear" or "gbdt".
+Format of training sample, can be "liblinear" or "gbdt".
 
 **ml-gbdt** is fully compatible with liblinear format. An example is:
 
@@ -115,13 +115,18 @@ An example of gbdt format is:
 
 -
 
-> **NOTE:**
+> **Some Explanation:**
 
 > The first line shows there are 10 features, the 2nd of which is a category feature, others are numerical features.
 
-> From the 2nd line on, The 1st column is the "y" values, others are ordered "x" values.
+> Values of category features must be integers.
 
-> The 4th and 5th line contains "w:5.5", "w:4" respectively. 5.5 and 4 are weights of the training samples.
+> Values of numerical features and "y" can be double floats or integers(treated as double float internally).
+
+> From the 2nd line on, the 1st column is the "y" values, others are ordered "x" values.
+
+> The 4th and 5th line contains "w:5.5", "w:4" respectively. 5.5 and 4 are weights of the two training samples.
+> Default weights are 1.0.
 
 
 ####model
