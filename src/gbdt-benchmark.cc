@@ -5,9 +5,9 @@ int main()
 {
     XYSet set;
 #if defined _MSC_VER
-    load_liblinear("../../training_sample/heart_scale.txt", &set);
+    load_liblinear("../data/heart_scale.txt", &set);
 #else
-    load_liblinear("../training_sample/heart_scale.txt", &set);
+    load_liblinear("./data/heart_scale.txt", &set);
 #endif
 
     TreeParam param;
@@ -22,8 +22,6 @@ int main()
 
     GBDTTrainer trainer(set, param);
     trainer.train();
-
-    CompoundValueVectorBuilder builder;
 
     FILE * output = yfopen("output.json", "w");
     trainer.save_json(output);

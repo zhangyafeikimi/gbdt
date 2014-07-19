@@ -19,4 +19,7 @@ struct TreeParam
     TreeParam() {}
 };
 
+void print_usage_and_exit();
+void parse_tree_param(int argc, char ** argv, TreeParam * param);
+
 #endif// GBDT_PARAM_H

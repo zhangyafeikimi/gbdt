@@ -10,6 +10,8 @@
 #include <list>
 
 #if defined USE_10000_RANDOM
+// If we want to get deterministic random number sequence,
+// consider turn on macro "USE_10000_RANDOM".
 class Rand01
 {
 private:

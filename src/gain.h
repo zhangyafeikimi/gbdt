@@ -6,6 +6,8 @@
 #include <stdio.h>
 
 class TreeGainNode;
+
+// decision tree based on information gain
 class TreeGain
 {
 private:
