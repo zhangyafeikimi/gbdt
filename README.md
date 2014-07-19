@@ -1,4 +1,149 @@
 ml-gbdt
-=======
+=====================
 
-A GBDT(MART) training and predicting package.
+**ml-gbdt** is a GBDT(MART) training and predicting package.
+
+Compiling
+---------
+**make** it or compile it with **Visual Studio**.
+
+Training
+--------
+>./gbdt-train -c [configuration file]
+
+Predicting
+--------
+>./gbdt-predict -c [configuration file]
+
+Configuration specification
+---------------------------
+###An Example
+
+>verbose = 1
+
+>max_level = 5
+
+>max_leaf_number = 20
+
+>max_x_values_number = 200
+
+>leaf_threshold = 0.75
+
+>gbdt_tree_number = 400
+
+>gbdt_learning_rate = 0.1
+
+>gbdt_sample_rate = 0.9
+
+>gbdt_loss = ls
+
+>training_sample = input
+
+>training_sample_format = liblinear
+
+>model = output.json
+
+###Specification
+
+All fields and values are case-sensitive.
+
+####verbose
+0, print least information
+1, print extra information
+
+####max_level
+Max level of a decision tree.
+
+####max_leaf_number
+Max leaf node of a decision tree.
+
+####max_x_values_number
+Max unique feature values used when a tree node is being split.
+
+####leaf_threshold
+It should be in [0.0, 1.0]. It is not used in gbdt, used only in decision tree.
+
+####gbdt_tree_number
+Number of trees.
+
+####gbdt_learning_rate
+Learning rate, should be in [0.0, 1.0], defined at **Friedman (March 1999)**.
+
+####gbdt_sample_rate
+Sample rate, should be in [0.0, 1.0], defined at **Friedman (March 1999)**.
+
+####gbdt_loss
+GBDT loss type, can be "ls" or "lad".
+
+LS and LAD loss are defined at **Friedman (February 1999)**
+
+> **NOTE:**
+>
+> LAD loss maybe numerical unstable and cause invalid feature importance.
+>
+> Training a GBDT model with LAD loss is slower then the one with LS loss.
+>
+> LS loss is numerically smoother and highly encouraged.
+
+####training_sample
+Filename of training sample.
+
+####training_sample_format
+Training sample format, can be "liblinear" or "gbdt".
+
+**ml-gbdt** is fully compatible with liblinear format. An example is:
+
+>+1 1:0.708333 2:1 3:1 4:-0.320755 5:-0.105023 6:-1 7:1 8:-0.419847 9:-1 10:-0.225806 12:1 13:-1
+
+>-1 1:0.583333 2:-1 3:0.333333 4:-0.603774 5:1 6:-1 7:1 8:0.358779 9:-1 10:-0.483871 12:-1 13:1
+
+>+1 1:0.166667 2:1 3:-0.333333 4:-0.433962 5:-0.383562 6:-1 7:-1 8:0.0687023 9:-1 10:-0.903226 11:-1 12:-1 13:1
+
+Because GBDT is not suitable for sparse features, I have defined another format supporting category features and weights.
+
+An example of gbdt format is:
+
+> \#n c n n n n n n n n
+
+> 0 61 0 60 468 36 0 52 1 1 0
+
+> 0 57 1 233 145 5 0 107 20 2 0
+
+> 1 w:5.5 53 0 313 6 0 0 4 0 2 0
+
+> 1 w:4 33 0 1793 341 18 0 181 0 0 0
+
+-
+
+> **NOTE:**
+
+> The first line shows there are 10 features, the 2nd of which is a category feature, others are numerical features.
+
+> From the 2nd line on, The 1st column is the "y" values, others are ordered "x" values.
+
+> The 4th and 5th line contains "w:5.5", "w:4" respectively. 5.5 and 4 are weights of the training samples.
+
+
+####model
+Filename of the model, the output for "gbdt-train" and the input for "gbdt-predict".
+It is in json and very easy to understand.
+
+Others
+-----
+### Classical Decision Tree
+class "TreeGain" in gain.h is an implementation of classical decision tree based on information gain.
+It can be accessed only through libgbdt. No command line tools supporting it.
+
+### json2cxx.py
+"json2cxx.py" lies in directory "tools".
+It can be used to convert a model(json) to a c++ predicting function, so that an interpreter for predicting is avoided.
+
+Reference
+---------
+Friedman, J. H. "Greedy Function Approximation: A Gradient Boosting Machine." (February 1999)
+
+http://www-stat.stanford.edu/~jhf/ftp/trebst.pdf
+
+Friedman, J. H. "Stochastic Gradient Boosting." (March 1999)
+
+https://statweb.stanford.edu/~jhf/ftp/stobst.pdf
