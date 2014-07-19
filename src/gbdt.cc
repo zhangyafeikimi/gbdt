@@ -9,6 +9,48 @@
 #include <limits>
 #include <list>
 
+static double sign(double y)
+{
+    if (y >= 0.0)
+        return 1.0;
+    else
+        return -1.0;
+}
+
+struct XW
+{
+    double x;
+    double w;
+    XW(double _x, double _w) : x(_x), w(_w) {}
+};
+
+struct XWLess
+{
+    bool operator()(const XW& a, const XW& b) const
+    {
+        return a.x < b.x;
+    }
+};
+
+// http://stackoverflow.com/questions/9794558/weighted-median-computation
+static double weighted_median(std::vector<XW> * xw)
+{
+    assert(!xw->empty());
+    std::sort(xw->begin(), xw->end(), XWLess());
+    double S = 0.0;
+    for (size_t i=0, s=xw->size(); i<s; i++)
+        S += (*xw)[i].w;
+    size_t k = 0;
+    double sum = S - (*xw)[0].w;
+
+    while(sum > S/2)
+    {
+        ++k;
+        sum -= (*xw)[k].w;
+    }
+    return (*xw)[k].x;
+}
+
 #if defined USE_10000_RANDOM
 // If we want to get deterministic random number sequence,
 // consider turn on macro "USE_10000_RANDOM".
@@ -59,8 +101,6 @@ public:
 class TreeLossNode : public TreeNode<TreeLossNode>
 {
 private:
-    // in current solution, response and residual are identical,
-    // it is put here for future usage.
     std::vector<double> response_;
     // residual for only this tree node.
     // NOTE: even for a root node,
@@ -126,6 +166,7 @@ private:
     static void split(TreeLossNode * parent)
     {
         XYSetRef& parent_xy_set = parent->set();
+        assert(parent_xy_set.size() != 0);
         double y_left = 0.0;
         double y_right = 0.0;
         parent->loss_all(&parent->split_x_index(),
@@ -205,7 +246,8 @@ private:
             double total = positive + negative;
             if (level >= param.max_level
                 || leaf_size >= param.max_leaf_number
-                || std::max(positive, negative) / total > param.leaf_threshold)
+                || std::max(positive, negative) / total > param.leaf_threshold
+                || node->set().size() == 0)
             {
                 node->leaf() = true;
                 leaf_size++;
@@ -245,8 +287,16 @@ private:
     void residual_2_response()
     {
         assert(response_.empty());
-        // residual and response are identical
-        response_ = residual_;// a deep copy
+        if (param().gbdt_loss == "lad")
+        {
+            for (size_t i=0, s=residual_.size(); i<s; i++)
+                response_.push_back(sign(residual_[i]));
+        }
+        else
+        {
+            // for LS loss, residual and response are identical
+            response_ = residual_;// a deep copy
+        }
     }
 
     void update_residual(const XYSet& full_set, std::vector<double> * full_residual) const
@@ -270,30 +320,52 @@ private:
     }
 
 public:
-    static void initial_residual(const XYSet& full_set,
+    static void initial_residual(const TreeParam& param, const XYSet& full_set,
         std::vector<double> * full_residual, double * y0)
     {
         assert(full_residual->empty());
-        double positive  = 0.0;
-        double total = 0.0;
-        for (size_t i=0, s=full_set.size(); i<s; i++)
+
+        if (param.gbdt_loss == "lad")
         {
-            const XY& xy = full_set.get(i);
-            double weight = xy.weight();
-            if (xy.is_positive())
-                positive += weight;
-            total += weight;
+            std::vector<XW> xw;
+            for (size_t i=0, s=full_set.size(); i<s; i++)
+            {
+                const XY& xy = full_set.get(i);
+                xw.push_back(XW(xy.y(), xy.weight()));
+            }
+            double median_y = weighted_median(&xw);
+
+            for (size_t i=0, s=full_set.size(); i<s; i++)
+            {
+                const XY& xy = full_set.get(i);
+                full_residual->push_back(xy.y() - median_y);
+            }
+
+            *y0 = median_y;
         }
-
-        double mean_y = positive / total;
-
-        for (size_t i=0, s=full_set.size(); i<s; i++)
+        else
         {
-            const XY& xy = full_set.get(i);
-            full_residual->push_back(xy.y() - mean_y);
-        }
+            double positive  = 0.0;
+            double total = 0.0;
+            for (size_t i=0, s=full_set.size(); i<s; i++)
+            {
+                const XY& xy = full_set.get(i);
+                double weight = xy.weight();
+                if (xy.is_positive())
+                    positive += weight;
+                total += weight;
+            }
 
-        *y0 = mean_y;
+            double mean_y = positive / total;
+
+            for (size_t i=0, s=full_set.size(); i<s; i++)
+            {
+                const XY& xy = full_set.get(i);
+                full_residual->push_back(xy.y() - mean_y);
+            }
+
+            *y0 = mean_y;
+        }
     }
 
     static TreeLossNode * train(const XYSet& full_set, const TreeParam& param,
@@ -400,37 +472,72 @@ private:
         double * _y_right,
         double * loss) const
     {
-        double n_left = 0.0;
-        double n_right = 0.0;
-        double y_left = 0.0;
-        double y_right = 0.0;
-
-        for (size_t i=0, s=set().size(); i<s; i++)
+        if (param().gbdt_loss == "lad")
         {
-            const XY& xy = set().get(i);
-            double x = xy.x(_split_x_index).d();
-            double weight = xy.weight();
-            double response = response_[i];
-            if (x <= _split_x_value)
+            double y_left;
+            double y_right;
+            std::vector<XW> response_left;
+            std::vector<XW> response_right;
+
+            for (size_t i=0, s=set().size(); i<s; i++)
             {
-                y_left += response * weight;
-                n_left += weight;
+                const XY& xy = set().get(i);
+                double x = xy.x(_split_x_index).d();
+                double weight = xy.weight();
+                double response = response_[i];
+                if (x <= _split_x_value)
+                    response_left.push_back(XW(response, weight));
+                else
+                    response_right.push_back(XW(response, weight));
             }
+
+            if (response_left.empty())
+                y_left = 0.0;
             else
-            {
-                y_right += response * weight;
-                n_right += weight;
-            }
+                y_left = weighted_median(&response_left);
+            if (response_right.empty())
+                y_right = 0.0;
+            else
+                y_right = weighted_median(&response_right);
+
+            *_y_left = y_left;
+            *_y_right = y_right;
+            __loss_x_numerical(_split_x_index, _split_x_value, y_left, y_right, loss);
         }
+        else
+        {
+            double n_left = 0.0;
+            double n_right = 0.0;
+            double y_left = 0.0;
+            double y_right = 0.0;
 
-        if (n_left > EPS)
-            y_left /= n_left;
-        if (n_right > EPS)
-            y_right /= n_right;
+            for (size_t i=0, s=set().size(); i<s; i++)
+            {
+                const XY& xy = set().get(i);
+                double x = xy.x(_split_x_index).d();
+                double weight = xy.weight();
+                double response = response_[i];
+                if (x <= _split_x_value)
+                {
+                    y_left += response * weight;
+                    n_left += weight;
+                }
+                else
+                {
+                    y_right += response * weight;
+                    n_right += weight;
+                }
+            }
 
-        *_y_left = y_left;
-        *_y_right = y_right;
-        __loss_x_numerical(_split_x_index, _split_x_value, y_left, y_right, loss);
+            if (n_left > EPS)
+                y_left /= n_left;
+            if (n_right > EPS)
+                y_right /= n_right;
+
+            *_y_left = y_left;
+            *_y_right = y_right;
+            __loss_x_numerical(_split_x_index, _split_x_value, y_left, y_right, loss);
+        }
     }
 
     void loss_x_category(
@@ -440,37 +547,72 @@ private:
         double * _y_right,
         double * loss) const
     {
-        double n_left = 0.0;
-        double n_right = 0.0;
-        double y_left = 0.0;
-        double y_right = 0.0;
-
-        for (size_t i=0, s=set().size(); i<s; i++)
+        if (param().gbdt_loss == "lad")
         {
-            const XY& xy = set().get(i);
-            int x = xy.x(_split_x_index).i();
-            double weight = xy.weight();
-            double response = response_[i];
-            if (x == _split_x_value)
+            double y_left;
+            double y_right;
+            std::vector<XW> response_left;
+            std::vector<XW> response_right;
+
+            for (size_t i=0, s=set().size(); i<s; i++)
             {
-                y_left += response * weight;
-                n_left += weight;
+                const XY& xy = set().get(i);
+                int x = xy.x(_split_x_index).i();
+                double weight = xy.weight();
+                double response = response_[i];
+                if (x == _split_x_value)
+                    response_left.push_back(XW(response, weight));
+                else
+                    response_right.push_back(XW(response, weight));
             }
+
+            if (response_left.empty())
+                y_left = 0.0;
             else
-            {
-                y_right += response * weight;
-                n_right += weight;
-            }
+                y_left = weighted_median(&response_left);
+            if (response_right.empty())
+                y_right = 0.0;
+            else
+                y_right = weighted_median(&response_right);
+
+            *_y_left = y_left;
+            *_y_right = y_right;
+            __loss_x_category(_split_x_index, _split_x_value, y_left, y_right, loss);
         }
+        else
+        {
+            double n_left = 0.0;
+            double n_right = 0.0;
+            double y_left = 0.0;
+            double y_right = 0.0;
 
-        if (n_left > EPS)
-            y_left /= n_left;
-        if (n_right > EPS)
-            y_right /= n_right;
+            for (size_t i=0, s=set().size(); i<s; i++)
+            {
+                const XY& xy = set().get(i);
+                int x = xy.x(_split_x_index).i();
+                double weight = xy.weight();
+                double response = response_[i];
+                if (x == _split_x_value)
+                {
+                    y_left += response * weight;
+                    n_left += weight;
+                }
+                else
+                {
+                    y_right += response * weight;
+                    n_right += weight;
+                }
+            }
 
-        *_y_left = y_left;
-        *_y_right = y_right;
-        __loss_x_category(_split_x_index, _split_x_value, y_left, y_right, loss);
+            if (n_left > EPS)
+                y_left /= n_left;
+            if (n_right > EPS)
+                y_right /= n_right;
+
+            *_y_left = y_left;
+            *_y_right = y_right;
+            __loss_x_category(_split_x_index, _split_x_value, y_left, y_right, loss);
+        }
     }
 
     void __loss_x_numerical(
@@ -596,7 +738,7 @@ void GBDTTrainer::train()
 {
     assert(trees_.empty());
 
-    TreeLossNode::initial_residual(full_set_, &full_residual_, &y0_);
+    TreeLossNode::initial_residual(param_, full_set_, &full_residual_, &y0_);
     if (param_.verbose)
         printf("square_loss=%lf\n", square_loss());
 
