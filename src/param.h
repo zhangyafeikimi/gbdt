@@ -2,6 +2,7 @@
 #define GBDT_PARAM_H
 
 #include <stddef.h>
+#include <string>
 
 struct TreeParam
 {
@@ -15,11 +16,12 @@ struct TreeParam
     size_t gbdt_tree_number;
     double gbdt_learning_rate;
     double gbdt_sample_rate;
+    std::string gbdt_loss;// TODO support it
 
-    TreeParam() {}
+    std::string training_sample;
+    std::string model;
 };
 
-void print_usage_and_exit();
-void parse_tree_param(int argc, char ** argv, TreeParam * param);
+int parse_tree_param(int argc, char ** argv, TreeParam * param);
 
 #endif// GBDT_PARAM_H

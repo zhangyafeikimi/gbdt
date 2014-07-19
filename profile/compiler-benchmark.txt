@@ -1,5 +1,5 @@
 training sample:
-../training_sample/heart_scale.txt
+./data/heart_scale.txt
 
 settings:
 param.verbose = 1;
@@ -10,6 +10,8 @@ param.leaf_threshold = 0.75;
 param.gbdt_tree_number = 400;
 param.gbdt_learning_rate = 0.1;
 param.gbdt_sample_rate = 0.9;
+param.gbdt_loss = "ls";
+
 
 compile flags: -Wall -g -DNDEBUG -O3
 

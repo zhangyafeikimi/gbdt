@@ -129,7 +129,7 @@ public:
                 to_read = line;
 
                 XY xy;
-                if (load_line(line, &xy) != 0)
+                if (load_line(line, &xy) == -1)
                 {
                     fprintf(stderr, "parse line failed:\n\"%s\"\n", line);
                     bad_lines++;
@@ -317,7 +317,7 @@ public:
 
                 if (loaded_spec == 0)
                 {
-                    if (load_spec(line, &spec_) != 0)
+                    if (load_spec(line, &spec_) == -1)
                     {
                         fprintf(stderr, "load spec failed:\n\"%s\"\n", line);
                         return -1;
@@ -327,7 +327,7 @@ public:
                 else
                 {
                     XY xy;
-                    if (load_x(line, &xy) != 0)
+                    if (load_x(line, &xy) == -1)
                     {
                         fprintf(stderr, "parse line failed:\n\"%s\"\n", line);
                         bad_lines++;

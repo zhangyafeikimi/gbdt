@@ -46,7 +46,7 @@ public:
 
     bool is_one()
     {
-#if defined _WIN32
+#if defined _MSC_VER
         int i = rand();
 #else
         int i = rand_r(&seed_);

@@ -8,6 +8,8 @@
 FILE * yfopen(const char * filename, const char * mode);
 void * xmalloc(size_t size);
 void * xrealloc(void * memory, size_t new_size);
+double xatof(const char *str);
+int xatoi(const char *str);
 
 class ScopedFile
 {
