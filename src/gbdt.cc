@@ -241,12 +241,8 @@ private:
             stack.pop_back();
 
             size_t level = node->level();
-            double positive = node->set().positive();
-            double negative = node->set().negative();
-            double total = positive + negative;
             if (level >= param.max_level
                 || leaf_size >= param.max_leaf_number
-                || std::max(positive, negative) / total > param.leaf_threshold
                 || node->set().size() == 0)
             {
                 node->leaf() = true;
@@ -345,18 +341,17 @@ public:
         }
         else
         {
-            double positive  = 0.0;
+            double total_y  = 0.0;
             double total = 0.0;
             for (size_t i=0, s=full_set.size(); i<s; i++)
             {
                 const XY& xy = full_set.get(i);
                 double weight = xy.weight();
-                if (xy.is_positive())
-                    positive += weight;
+                total_y += xy.y() * weight;
                 total += weight;
             }
 
-            double mean_y = positive / total;
+            double mean_y = total_y / total;
 
             for (size_t i=0, s=full_set.size(); i<s; i++)
             {
