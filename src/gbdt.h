@@ -19,6 +19,7 @@ public:
     GBDTPredictor();
     virtual ~GBDTPredictor();
     double predict(const CompoundValueVector& X) const;
+    double predict_logistic(const CompoundValueVector& X) const;
     int load_json(FILE * fp);
     void clear();
 };

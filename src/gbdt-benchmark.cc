@@ -39,8 +39,8 @@ int main()
         const XY& xy = set.get(i);
         const CompoundValueVector& X = xy.X();
         double y = xy.y();
-        printf("%lf = %lf should be near to %lf\n",
-            trainer.predict(X), predictor.predict(X), y);
+        printf("p(y=1|x)=%lf=%lf, y=%lf\n",
+            trainer.predict_logistic(X), predictor.predict_logistic(X), y);
     }
 
     return 0;

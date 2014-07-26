@@ -77,6 +77,8 @@ static double mean_y(const XYSet& full_set)
     return total_y / total_weight;
 }
 
+static const double LOGISTIC_Y_BOUND = 1.0;
+
 #if defined USE_10000_RANDOM
 // If we want to get deterministic random number sequence,
 // consider turn on macro "USE_10000_RANDOM".
@@ -579,6 +581,9 @@ private:
         }
         else if (param().gbdt_loss == "logistic")
         {
+            y_left = 0.0;
+            y_right = 0.0;
+
             double left_numerator = 0.0, left_denominator = 0.0;
             double right_numerator = 0.0, right_denominator = 0.0;
 
@@ -602,9 +607,15 @@ private:
                 }
             }
 
+            y_left = left_numerator / left_denominator;
+            y_right = right_numerator / right_denominator;
+            // bound y
+            y_left = std::min(std::max(-LOGISTIC_Y_BOUND, y_left), LOGISTIC_Y_BOUND);
+            y_right = std::min(std::max(-LOGISTIC_Y_BOUND, y_right), LOGISTIC_Y_BOUND);
+
             // readjust
-            *_y_left = left_numerator / left_denominator;
-            *_y_right = right_numerator / right_denominator;
+            *_y_left = y_left;
+            *_y_right = y_right;
         }
     }
 
@@ -678,6 +689,9 @@ private:
         }
         else if (param().gbdt_loss == "logistic")
         {
+            y_left = 0.0;
+            y_right = 0.0;
+
             double left_numerator = 0.0, left_denominator = 0.0;
             double right_numerator = 0.0, right_denominator = 0.0;
 
@@ -701,9 +715,15 @@ private:
                 }
             }
 
+            y_left = left_numerator / left_denominator;
+            y_right = right_numerator / right_denominator;
+            // bound y
+            y_left = std::min(std::max(-LOGISTIC_Y_BOUND, y_left), LOGISTIC_Y_BOUND);
+            y_right = std::min(std::max(-LOGISTIC_Y_BOUND, y_right), LOGISTIC_Y_BOUND);
+
             // readjust
-            *_y_left = left_numerator / left_denominator;
-            *_y_right = right_numerator / right_denominator;
+            *_y_left = y_left;
+            *_y_right = y_right;
         }
     }
 
@@ -769,6 +789,11 @@ double GBDTPredictor::predict(const CompoundValueVector& X) const
     return y;
 }
 
+double GBDTPredictor::predict_logistic(const CompoundValueVector& X) const
+{
+    return 1.0 / (1.0 + exp(-2.0 * predict(X)));
+}
+
 void GBDTPredictor::clear()
 {
     for (size_t i=0, s=trees_.size(); i<s; i++)
@@ -787,8 +812,8 @@ double GBDTTrainer::ls_loss() const
     for (size_t i=0, s=full_set_.size(); i<s; i++)
     {
         const XY& xy = full_set_.get(i);
-        double res = full_residual_[i];
-        loss += (res * res * xy.weight());
+        double residual = full_residual_[i];
+        loss += (residual * residual * xy.weight());
     }
     return loss;
 }
@@ -800,16 +825,22 @@ double GBDTTrainer::lad_loss() const
     for (size_t i=0, s=full_set_.size(); i<s; i++)
     {
         const XY& xy = full_set_.get(i);
-        double res = full_residual_[i];
-        loss += abs(res) * xy.weight();
+        double residual = full_residual_[i];
+        loss += abs(residual) * xy.weight();
     }
     return loss;
 }
 
 double GBDTTrainer::logistic_loss() const
 {
-    // TODO
-    return 0.0;
+    assert(full_set_.size() == full_residual_.size());
+    double loss = 0.0;
+    for (size_t i=0, s=full_set_.size(); i<s; i++)
+    {
+        const XY& xy = full_set_.get(i);
+        loss += log(1 + exp(-2.0 * xy.y() * full_residual_[i])) * xy.weight();
+    }
+    return loss;
 }
 
 double GBDTTrainer::total_loss() const
