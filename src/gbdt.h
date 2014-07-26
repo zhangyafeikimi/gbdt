@@ -31,6 +31,7 @@ private:
     std::vector<double> full_residual_;
     double ls_loss() const;
     double lad_loss() const;
+    double logistic_loss() const;
     double total_loss() const;
     void dump_feature_importance() const;
 public:

@@ -4,6 +4,7 @@
 #include <rapidjson/filestream.h>
 #include <rapidjson/writer.h>
 #include <assert.h>
+#include <math.h>
 #include <stdlib.h>
 #include <algorithm>
 #include <limits>
@@ -49,6 +50,31 @@ static double weighted_median(std::vector<XW> * xw)
         sum -= (*xw)[k].w;
     }
     return (*xw)[k].x;
+}
+
+static double median_y(const XYSet& full_set)
+{
+    std::vector<XW> xw;
+    for (size_t i=0, s=full_set.size(); i<s; i++)
+    {
+        const XY& xy = full_set.get(i);
+        xw.push_back(XW(xy.y(), xy.weight()));
+    }
+    return weighted_median(&xw);
+}
+
+static double mean_y(const XYSet& full_set)
+{
+    double total_y  = 0.0;
+    double total_weight = 0.0;
+    for (size_t i=0, s=full_set.size(); i<s; i++)
+    {
+        const XY& xy = full_set.get(i);
+        double weight = xy.weight();
+        total_y += xy.y() * weight;
+        total_weight += weight;
+    }
+    return total_y / total_weight;
 }
 
 #if defined USE_10000_RANDOM
@@ -119,12 +145,14 @@ private:
         response_(), residual_(),
         total_loss_(0.0), loss_(0.0) {}
 
+    // for root
     void add_xy_set_residuals(const XYSet& full_set, const std::vector<double>& full_residual)
     {
         set().load(full_set);
         residual_ = full_residual;
     }
 
+    // for non-root
     void add_xy_residual(const XY& xy, double r)
     {
         set().add(xy);
@@ -283,24 +311,45 @@ private:
     void residual_2_response()
     {
         assert(response_.empty());
+        assert(residual_.size() == set().size());
+
         if (param().gbdt_loss == "lad")
         {
             for (size_t i=0, s=residual_.size(); i<s; i++)
                 response_.push_back(sign(residual_[i]));
         }
+        else if (param().gbdt_loss == "logistic")
+        {
+            for (size_t i=0, s=residual_.size(); i<s; i++)
+            {
+                double y = set().get(i).y();
+                double response = 2.0 * y / (1.0 + exp(2 * y * residual_[i]));
+                response_.push_back(response);
+            }
+        }
         else
         {
-            // for LS loss, residual and response are identical
-            response_ = residual_;// a deep copy
+            response_ = residual_;
         }
     }
 
     void update_residual(const XYSet& full_set, std::vector<double> * full_residual) const
     {
-        for (size_t i=0, s=full_set.size(); i<s; i++)
+        if (param().gbdt_loss == "logistic")
         {
-            const XY& xy = full_set.get(i);
-            (*full_residual)[i] -= predict(xy.X());
+            for (size_t i=0, s=full_set.size(); i<s; i++)
+            {
+                const XY& xy = full_set.get(i);
+                (*full_residual)[i] += predict(xy.X());
+            }
+        }
+        else
+        {
+            for (size_t i=0, s=full_set.size(); i<s; i++)
+            {
+                const XY& xy = full_set.get(i);
+                (*full_residual)[i] -= predict(xy.X());
+            }
         }
     }
 
@@ -339,27 +388,27 @@ public:
 
             *y0 = median_y;
         }
+        else if (param.gbdt_loss == "logistic")
+        {
+            // very important NOTE:
+            // For logistic loss, "full_residual[i]" stores F_{m-1}(x_i),
+            // i is the subscript of training samples,
+            // m is the subscript of decision trees.
+            // So the name "full_residual" is not appropriate any more.
+            double _mean_y = mean_y(full_set);
+            double F0x = 0.5 * log((1+_mean_y) / (1-_mean_y));
+            full_residual->assign(full_set.size(), F0x);
+        }
         else
         {
-            double total_y  = 0.0;
-            double total = 0.0;
+            double _mean_y = mean_y(full_set);
             for (size_t i=0, s=full_set.size(); i<s; i++)
             {
                 const XY& xy = full_set.get(i);
-                double weight = xy.weight();
-                total_y += xy.y() * weight;
-                total += weight;
+                full_residual->push_back(xy.y() - _mean_y);
             }
 
-            double mean_y = total_y / total;
-
-            for (size_t i=0, s=full_set.size(); i<s; i++)
-            {
-                const XY& xy = full_set.get(i);
-                full_residual->push_back(xy.y() - mean_y);
-            }
-
-            *y0 = mean_y;
+            *y0 = _mean_y;
         }
     }
 
@@ -528,6 +577,35 @@ private:
             *_y_left = y_left;
             *_y_right = y_right;
         }
+        else if (param().gbdt_loss == "logistic")
+        {
+            double left_numerator = 0.0, left_denominator = 0.0;
+            double right_numerator = 0.0, right_denominator = 0.0;
+
+            for (size_t i=0, s=set().size(); i<s; i++)
+            {
+                const XY& xy = set().get(i);
+                double x = xy.x(_split_x_index).d();
+                double y = xy.y();
+                double weight = xy.weight();
+                double response = response_[i];
+                double abs_response = abs(response);
+                if (x <= _split_x_value)
+                {
+                    left_numerator += response * weight;
+                    right_denominator += abs_response * (2 - abs_response) * weight;
+                }
+                else
+                {
+                    right_numerator += response * weight;
+                    left_denominator += abs_response * (2 - abs_response) * weight;
+                }
+            }
+
+            // readjust
+            *_y_left = left_numerator / left_denominator;
+            *_y_right = right_numerator / right_denominator;
+        }
     }
 
     void loss_x_category(
@@ -597,6 +675,35 @@ private:
             // readjust leaf values by the weighted median values
             *_y_left = y_left;
             *_y_right = y_right;
+        }
+        else if (param().gbdt_loss == "logistic")
+        {
+            double left_numerator = 0.0, left_denominator = 0.0;
+            double right_numerator = 0.0, right_denominator = 0.0;
+
+            for (size_t i=0, s=set().size(); i<s; i++)
+            {
+                const XY& xy = set().get(i);
+                int x = xy.x(_split_x_index).i();
+                double y = xy.y();
+                double weight = xy.weight();
+                double response = response_[i];
+                double abs_response = abs(response);
+                if (x == _split_x_value)
+                {
+                    left_numerator += response * weight;
+                    right_denominator += abs_response * (2 - abs_response) * weight;
+                }
+                else
+                {
+                    right_numerator += response * weight;
+                    left_denominator += abs_response * (2 - abs_response) * weight;
+                }
+            }
+
+            // readjust
+            *_y_left = left_numerator / left_denominator;
+            *_y_right = right_numerator / right_denominator;
         }
     }
 
@@ -699,10 +806,18 @@ double GBDTTrainer::lad_loss() const
     return loss;
 }
 
+double GBDTTrainer::logistic_loss() const
+{
+    // TODO
+    return 0.0;
+}
+
 double GBDTTrainer::total_loss() const
 {
     if (param_.gbdt_loss == "lad")
         return lad_loss();
+    else if (param_.gbdt_loss == "logistic")
+        return logistic_loss();
     else
         return ls_loss();
 }

@@ -63,9 +63,9 @@ private:
             param->gbdt_sample_rate = xatof(value.c_str());
         else if (key == "gbdt_loss")
         {
-            if (value != "ls" && value != "lad")
+            if (value != "ls" && value != "lad" && value != "logistic")
             {
-                fprintf(stderr, "invalid \"gbdt_loss\", it should be \"ls\" or \"lad\"\n");
+                fprintf(stderr, "invalid \"gbdt_loss\", it should be \"ls\", \"lad\" or \"logistic\"\n");
                 return -1;
             }
             param->gbdt_loss = value;
