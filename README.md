@@ -29,6 +29,8 @@ Configuration File
 
 >leaf_threshold = 0.75
 
+>min_values_in_leaf = 10
+
 >gbdt_tree_number = 400
 
 >gbdt_learning_rate = 0.1
@@ -63,7 +65,13 @@ Max unique values of one feature used when a tree node is being split by this fe
 ####leaf_threshold
 It should be in [0.0, 1.0].
 
-It is not used in gbdt, used only in decision tree.
+It is not used in GBDT, used only in decision tree for classification.
+**ml-gbdt** will stop splitting a node when it satisfies **max(positive training samples, negative training samples) / total training sample >= leaf_threshold**, and make it a leaf node.
+
+####min_values_in_leaf
+It should be >= 1.
+
+**ml-gbdt** will stop splitting a node when it has less equal than **min_values_in_leaf** training samples, and make it a leaf node.
 
 ####gbdt_tree_number
 Number of trees.
@@ -79,23 +87,13 @@ GBDT loss type, can be "ls" or "lad".
 
 LS and LAD loss are defined at **Friedman (February 1999)**
 
-> **NOTE:**
->
-> LAD loss maybe numerical unstable and cause invalid feature importance. LS loss is numerically smoother.
->
-> Training a GBDT model with LAD loss is slower then the one with LS loss.
->
-> LAD loss is only suitable for binary classification.
->
-> **All in all, LS loss is highly encouraged.**
-
 ####training_sample
 Filename of training samples.
 
 ####training_sample_format
 Format of training sample, can be "liblinear" or "gbdt".
 
-**ml-gbdt** is fully compatible with [liblinear](http://www.csie.ntu.edu.tw/~cjlin/liblinear/) format. An example is:
+**ml-gbdt** is fully compatible with [liblinear](http://www.csie.ntu.edu.tw/~cjlin/liblinear/)/[libsvm](http://www.csie.ntu.edu.tw/~cjlin/libsvm/) format. An example is:
 
 >+1 1:0.708333 2:1 3:1 4:-0.320755 5:-0.105023 6:-1 7:1 8:-0.419847 9:-1 10:-0.225806 12:1 13:-1
 
@@ -140,8 +138,6 @@ An example of gbdt format is:
 
 > Feature weights.
 
-> Classification and regression.
-
 
 ####model
 Filename of the model, the output for "gbdt-train" and the input for "gbdt-predict".
@@ -150,12 +146,17 @@ It is in json and very easy to understand.
 Others
 -----
 ### Classical Decision Tree
-class "TreeGain" in gain.h is an implementation of classical decision tree based on information gain.
+class "TreeGain" in gain.h is an implementation of classical decision tree for classification based on information gain.
 It can be accessed only through libgbdt. No command line tools supporting it.
 
 ### json2cxx.py
 "json2cxx.py" lies in directory "tools".
 It can be used to convert a model(json) to a c++ predicting function, so that an interpreter for predicting is avoided.
+
+### Classification vs Regression
+GBDT is a robust regression model for classification and regression.
+
+When y is 0/1 or -1/1, it naturally becomes a classification model.
 
 Reference
 ---------

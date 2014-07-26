@@ -243,7 +243,7 @@ private:
             size_t level = node->level();
             if (level >= param.max_level
                 || leaf_size >= param.max_leaf_number
-                || node->set().size() == 0)
+                || node->set().size() <= param.min_values_in_leaf)
             {
                 node->leaf() = true;
                 leaf_size++;

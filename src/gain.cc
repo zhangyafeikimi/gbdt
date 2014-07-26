@@ -267,7 +267,8 @@ void TreeGain::train()
         double total = positive + negative;
         if (level >= param_.max_level
             || leaf_size >= param_.max_leaf_number
-            || std::max(positive, negative) / total > param_.leaf_threshold)
+            || std::max(positive, negative) / total >= param_.leaf_threshold
+            || node->set().size() <= param_.min_values_in_leaf)
         {
             node->leaf() = true;
             node->y() = positive / total;

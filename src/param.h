@@ -12,11 +12,12 @@ struct TreeParam
     size_t max_leaf_number;
     size_t max_x_values_number;
     double leaf_threshold;
+    size_t min_values_in_leaf;
 
     size_t gbdt_tree_number;
     double gbdt_learning_rate;
     double gbdt_sample_rate;
-    std::string gbdt_loss;// TODO support it
+    std::string gbdt_loss;
 
     std::string training_sample;
     std::string training_sample_format;

@@ -20,6 +20,7 @@ static void print_usage(const char * program, FILE * fp)
         "        max_leaf_number = 20\n"
         "        max_x_values_number = 200\n"
         "        leaf_threshold = 0.75\n"
+        "        min_values_in_leaf = 10\n"
         "        gbdt_tree_number = 400\n"
         "        gbdt_learning_rate = 0.1\n"
         "        gbdt_sample_rate = 0.9\n"
@@ -38,15 +39,24 @@ private:
         if (key == "verbose")
             param->verbose = xatoi(value.c_str());
         else if (key == "max_level")
-            param->max_level = xatoi(value.c_str());
+            param->max_level = (size_t)xatoi(value.c_str());
         else if (key == "max_leaf_number")
-            param->max_leaf_number = xatoi(value.c_str());
+            param->max_leaf_number = (size_t)xatoi(value.c_str());
         else if (key == "max_x_values_number")
-            param->max_x_values_number = xatoi(value.c_str());
+            param->max_x_values_number = (size_t)xatoi(value.c_str());
         else if (key == "leaf_threshold")
             param->leaf_threshold = xatof(value.c_str());
+        else if (key == "min_values_in_leaf")
+        {
+            param->min_values_in_leaf = (size_t)xatoi(value.c_str());
+            if (param->min_values_in_leaf < 1)
+            {
+                fprintf(stderr, "invalid \"min_values_in_leaf\", it should be >= 1\n");
+                return -1;
+            }
+        }
         else if (key == "gbdt_tree_number")
-            param->gbdt_tree_number = xatoi(value.c_str());
+            param->gbdt_tree_number = (size_t)xatoi(value.c_str());
         else if (key == "gbdt_learning_rate")
             param->gbdt_learning_rate = xatof(value.c_str());
         else if (key == "gbdt_sample_rate")
@@ -168,6 +178,7 @@ int parse_tree_param(int argc, char ** argv, TreeParam * param)
     param->max_leaf_number = 20;
     param->max_x_values_number = 200;
     param->leaf_threshold = 0.75;
+    param->min_values_in_leaf = 10;
     param->gbdt_tree_number = 400;
     param->gbdt_learning_rate = 0.1;
     param->gbdt_sample_rate = 0.9;
