@@ -467,10 +467,43 @@ private:
         double * _y_right,
         double * loss) const
     {
+        double n_left = 0.0;
+        double n_right = 0.0;
+        double y_left = 0.0;
+        double y_right = 0.0;
+
+        for (size_t i=0, s=set().size(); i<s; i++)
+        {
+            const XY& xy = set().get(i);
+            double x = xy.x(_split_x_index).d();
+            double weight = xy.weight();
+            double response = response_[i];
+            if (x <= _split_x_value)
+            {
+                y_left += response * weight;
+                n_left += weight;
+            }
+            else
+            {
+                y_right += response * weight;
+                n_right += weight;
+            }
+        }
+
+        if (n_left > EPS)
+            y_left /= n_left;
+        if (n_right > EPS)
+            y_right /= n_right;
+
+        *_y_left = y_left;
+        *_y_right = y_right;
+        __loss_x_numerical(_split_x_index, _split_x_value, y_left, y_right, loss);
+
         if (param().gbdt_loss == "lad")
         {
-            double y_left;
-            double y_right;
+            y_left = 0.0;
+            y_right = 0.0;
+
             std::vector<XW> response_left;
             std::vector<XW> response_right;
 
@@ -486,52 +519,14 @@ private:
                     response_right.push_back(XW(response, weight));
             }
 
-            if (response_left.empty())
-                y_left = 0.0;
-            else
+            if (!response_left.empty())
                 y_left = weighted_median(&response_left);
-            if (response_right.empty())
-                y_right = 0.0;
-            else
+            if (!response_right.empty())
                 y_right = weighted_median(&response_right);
 
+            // readjust leaf values by the weighted median values
             *_y_left = y_left;
             *_y_right = y_right;
-            __loss_x_numerical(_split_x_index, _split_x_value, y_left, y_right, loss);
-        }
-        else
-        {
-            double n_left = 0.0;
-            double n_right = 0.0;
-            double y_left = 0.0;
-            double y_right = 0.0;
-
-            for (size_t i=0, s=set().size(); i<s; i++)
-            {
-                const XY& xy = set().get(i);
-                double x = xy.x(_split_x_index).d();
-                double weight = xy.weight();
-                double response = response_[i];
-                if (x <= _split_x_value)
-                {
-                    y_left += response * weight;
-                    n_left += weight;
-                }
-                else
-                {
-                    y_right += response * weight;
-                    n_right += weight;
-                }
-            }
-
-            if (n_left > EPS)
-                y_left /= n_left;
-            if (n_right > EPS)
-                y_right /= n_right;
-
-            *_y_left = y_left;
-            *_y_right = y_right;
-            __loss_x_numerical(_split_x_index, _split_x_value, y_left, y_right, loss);
         }
     }
 
@@ -542,10 +537,43 @@ private:
         double * _y_right,
         double * loss) const
     {
+        double n_left = 0.0;
+        double n_right = 0.0;
+        double y_left = 0.0;
+        double y_right = 0.0;
+
+        for (size_t i=0, s=set().size(); i<s; i++)
+        {
+            const XY& xy = set().get(i);
+            int x = xy.x(_split_x_index).i();
+            double weight = xy.weight();
+            double response = response_[i];
+            if (x == _split_x_value)
+            {
+                y_left += response * weight;
+                n_left += weight;
+            }
+            else
+            {
+                y_right += response * weight;
+                n_right += weight;
+            }
+        }
+
+        if (n_left > EPS)
+            y_left /= n_left;
+        if (n_right > EPS)
+            y_right /= n_right;
+
+        *_y_left = y_left;
+        *_y_right = y_right;
+        __loss_x_category(_split_x_index, _split_x_value, y_left, y_right, loss);
+
         if (param().gbdt_loss == "lad")
         {
-            double y_left;
-            double y_right;
+            y_left = 0.0;
+            y_right = 0.0;
+
             std::vector<XW> response_left;
             std::vector<XW> response_right;
 
@@ -561,52 +589,14 @@ private:
                     response_right.push_back(XW(response, weight));
             }
 
-            if (response_left.empty())
-                y_left = 0.0;
-            else
+            if (!response_left.empty())
                 y_left = weighted_median(&response_left);
-            if (response_right.empty())
-                y_right = 0.0;
-            else
+            if (!response_right.empty())
                 y_right = weighted_median(&response_right);
 
+            // readjust leaf values by the weighted median values
             *_y_left = y_left;
             *_y_right = y_right;
-            __loss_x_category(_split_x_index, _split_x_value, y_left, y_right, loss);
-        }
-        else
-        {
-            double n_left = 0.0;
-            double n_right = 0.0;
-            double y_left = 0.0;
-            double y_right = 0.0;
-
-            for (size_t i=0, s=set().size(); i<s; i++)
-            {
-                const XY& xy = set().get(i);
-                int x = xy.x(_split_x_index).i();
-                double weight = xy.weight();
-                double response = response_[i];
-                if (x == _split_x_value)
-                {
-                    y_left += response * weight;
-                    n_left += weight;
-                }
-                else
-                {
-                    y_right += response * weight;
-                    n_right += weight;
-                }
-            }
-
-            if (n_left > EPS)
-                y_left /= n_left;
-            if (n_right > EPS)
-                y_right /= n_right;
-
-            *_y_left = y_left;
-            *_y_right = y_right;
-            __loss_x_category(_split_x_index, _split_x_value, y_left, y_right, loss);
         }
     }
 
@@ -683,7 +673,7 @@ GBDTTrainer::GBDTTrainer(const XYSet& set, const TreeParam& param)
 
 GBDTTrainer::~GBDTTrainer() {}
 
-double GBDTTrainer::square_loss() const
+double GBDTTrainer::ls_loss() const
 {
     assert(full_set_.size() == full_residual_.size());
     double loss = 0.0;
@@ -694,6 +684,27 @@ double GBDTTrainer::square_loss() const
         loss += (res * res * xy.weight());
     }
     return loss;
+}
+
+double GBDTTrainer::lad_loss() const
+{
+    assert(full_set_.size() == full_residual_.size());
+    double loss = 0.0;
+    for (size_t i=0, s=full_set_.size(); i<s; i++)
+    {
+        const XY& xy = full_set_.get(i);
+        double res = full_residual_[i];
+        loss += abs(res) * xy.weight();
+    }
+    return loss;
+}
+
+double GBDTTrainer::total_loss() const
+{
+    if (param_.gbdt_loss == "lad")
+        return lad_loss();
+    else
+        return ls_loss();
 }
 
 static void record_loss_drop(const TreeLossNode * node,
@@ -735,7 +746,7 @@ void GBDTTrainer::train()
 
     TreeLossNode::initial_residual(param_, full_set_, &full_residual_, &y0_);
     if (param_.verbose)
-        printf("square_loss=%lf\n", square_loss());
+        printf("total_loss=%lf\n", total_loss());
 
     for (size_t i=0; i<param_.gbdt_tree_number; i++)
     {
@@ -744,9 +755,9 @@ void GBDTTrainer::train()
         trees_.push_back(tree);
         if (param_.verbose)
         {
-            double total_loss = square_loss();
-            tree->total_loss() = total_loss;
-            printf("square_loss=%lf\n", total_loss);
+            double _total_loss = total_loss();
+            tree->total_loss() = _total_loss;
+            printf("total_loss=%lf\n", _total_loss);
         }
         printf("OK\n");
     }

@@ -29,7 +29,9 @@ private:
     const XYSet& full_set_;
     const TreeParam& param_;
     std::vector<double> full_residual_;
-    double square_loss() const;
+    double ls_loss() const;
+    double lad_loss() const;
+    double total_loss() const;
     void dump_feature_importance() const;
 public:
     GBDTTrainer(const XYSet& set, const TreeParam& param);

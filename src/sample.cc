@@ -38,7 +38,7 @@ private:
         if (strncmp(cur, "+1", 2) == 0)
             xy->y() = 1.0;
         else if (strncmp(cur, "-1", 2) == 0)
-            xy->y() = 0.0;
+            xy->y() = -1.0;
         else
         {
             fprintf(stderr, "invalid y label\n");

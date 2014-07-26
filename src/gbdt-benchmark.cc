@@ -20,6 +20,7 @@ int main()
     param.gbdt_tree_number = 400;
     param.gbdt_learning_rate = 0.1;
     param.gbdt_sample_rate = 0.9;
+    param.gbdt_loss = "lad";
 
     GBDTTrainer trainer(set, param);
     trainer.train();

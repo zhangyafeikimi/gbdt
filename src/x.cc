@@ -41,14 +41,14 @@ void * xrealloc(void * memory, size_t new_size)
     return p;
 }
 
-double xatof(const char *str)
+double xatof(const char * str)
 {
     char * endptr;
     double d;
 
     errno = 0;
     d = strtod(str, &endptr);
-    if (errno != 0)
+    if (errno != 0 || str == endptr)
     {
         fprintf(stderr, "%s is not an double\n", str);
         exit(1);
@@ -63,7 +63,7 @@ int xatoi(const char *str)
 
     errno = 0;
     i = (int) strtol(str, &endptr, 10);
-    if (errno != 0)
+    if (errno != 0 || str == endptr)
     {
         fprintf(stderr, "%s is not an integer\n", str);
         exit(1);
