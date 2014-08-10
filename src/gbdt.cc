@@ -18,6 +18,7 @@ static double sign(double y)
         return -1.0;
 }
 
+// x and its weight
 struct XW
 {
     double x;
@@ -80,7 +81,7 @@ static double mean_y(const XYSet& full_set)
 static const double LOGISTIC_Y_BOUND = 1.0;
 
 #if defined USE_10000_RANDOM
-// If we want to get deterministic random number sequence,
+// If we want to get a deterministic sequence of random number,
 // consider turn on macro "USE_10000_RANDOM".
 class Rand01
 {
@@ -126,43 +127,14 @@ public:
 };
 #endif
 
-class TreeLossNode : public TreeNode<TreeLossNode>
+class TreeLossNode : public TreeNodeBase<TreeLossNode>
 {
 private:
-    std::vector<double> response_;
-    // residual for only this tree node.
-    // NOTE: even for a root node,
-    // it is not the residual for the whole tree,
-    // but only the root node.
-    std::vector<double> residual_;
-
-    // loss of current tree and all preceding trees
-    double total_loss_;
-    // loss of current split
-    double loss_;
-
-private:
     TreeLossNode(const TreeParam& param, size_t level)
-        : TreeNode<TreeLossNode>(param, level),
-        response_(), residual_(),
-        total_loss_(0.0), loss_(0.0) {}
-
-    // for root
-    void add_xy_set_residuals(const XYSet& full_set, const std::vector<double>& full_residual)
-    {
-        set().load(full_set);
-        residual_ = full_residual;
-    }
-
-    // for non-root
-    void add_xy_residual(const XY& xy, double r)
-    {
-        set().add(xy);
-        residual_.push_back(r);
-    }
+        : TreeNodeBase<TreeLossNode>(param, level) {}
 
     static TreeLossNode * create_root(const XYSet& full_set, const TreeParam& param,
-        const std::vector<double>& full_residual)
+        const std::vector<double>& full_fx)
     {
         TreeLossNode * root = new TreeLossNode(param, 0);
         root->left() = 0;
@@ -172,24 +144,23 @@ private:
         XYSetRef& root_xy_set = root->set();
         if (param.gbdt_sample_rate >= 1.0)
         {
-            root->add_xy_set_residuals(full_set, full_residual);
+            root->add_xy_set_fxs(full_set, full_fx);
         }
         else
         {
-            // sample 'full_set' and 'full_residual' together
+            // sample 'full_set' and 'full_fx' together
             root_xy_set.spec() = &full_set.spec();
             Rand01 r(param.gbdt_sample_rate);
             for (size_t i=0, s=full_set.size(); i<s; i++)
             {
                 if (r.is_one())
-                    root->add_xy_residual(full_set.get(i), full_residual[i]);
+                    root->add_xy_fx(full_set.get(i), full_fx[i]);
             }
         }
         assert(root_xy_set.get_xtype_size() != 0);
         assert(root_xy_set.size() != 0);
 
-        root->residual_2_response();
-
+        root->calculate_response();
         return root;
     }
 
@@ -204,7 +175,7 @@ private:
             &parent->split_x_value(),
             &y_left,
             &y_right,
-            &parent->loss_);
+            &parent->loss());
 
         TreeLossNode * _left = new TreeLossNode(parent->param(), parent->level() + 1);
         _left->left() = 0;
@@ -229,13 +200,13 @@ private:
             double split_x_value_double = parent->split_get_double();
             for (size_t i=0, s=parent_xy_set.size(); i<s; i++)
             {
-                double residual = parent->residual_[i];
+                double f = parent->fx_[i];
                 const XY& xy = parent_xy_set.get(i);
                 double x = xy.x(_split_x_index).d();
                 if (x <= split_x_value_double)
-                    _left->add_xy_residual(xy, residual);
+                    _left->add_xy_fx(xy, f);
                 else
-                    _right->add_xy_residual(xy, residual);
+                    _right->add_xy_fx(xy, f);
             }
         }
         else
@@ -243,17 +214,17 @@ private:
             double split_x_value_int = parent->split_get_int();
             for (size_t i=0, s=parent_xy_set.size(); i<s; i++)
             {
-                double residual = parent->residual_[i];
+                double f = parent->fx_[i];
                 const XY& xy = parent_xy_set.get(i);
                 int x = xy.x(_split_x_index).i();
                 if (x == split_x_value_int)
-                    _left->add_xy_residual(xy, residual);
+                    _left->add_xy_fx(xy, f);
                 else
-                    _right->add_xy_residual(xy, residual);
+                    _right->add_xy_fx(xy, f);
             }
         }
-        _left->residual_2_response();
-        _right->residual_2_response();
+        _left->calculate_response();
+        _right->calculate_response();
         assert(parent->set().size() ==
             _left->set().size() + _right->set().size());
     }
@@ -310,111 +281,72 @@ private:
         __shrink(this, param().gbdt_learning_rate);
     }
 
-    void residual_2_response()
+    void calculate_response()
     {
         assert(response_.empty());
-        assert(residual_.size() == set().size());
+        assert(fx_.size() == set().size());
 
         if (param().gbdt_loss == "lad")
         {
-            for (size_t i=0, s=residual_.size(); i<s; i++)
-                response_.push_back(sign(residual_[i]));
+            for (size_t i=0, s=fx_.size(); i<s; i++)
+                response_.push_back(sign((set().get(i).y() - fx_[i])));
         }
         else if (param().gbdt_loss == "logistic")
         {
-            for (size_t i=0, s=residual_.size(); i<s; i++)
+            for (size_t i=0, s=fx_.size(); i<s; i++)
             {
                 double y = set().get(i).y();
-                double response = 2.0 * y / (1.0 + exp(2 * y * residual_[i]));
+                double response = 2.0 * y / (1.0 + exp(2 * y * fx_[i]));
                 response_.push_back(response);
             }
         }
         else
         {
-            response_ = residual_;
+            for (size_t i=0, s=fx_.size(); i<s; i++)
+                response_.push_back((set().get(i).y() - fx_[i]));
         }
     }
 
-    void update_residual(const XYSet& full_set, std::vector<double> * full_residual) const
+    void update_fx(const XYSet& full_set, std::vector<double> * full_fx) const
     {
-        if (param().gbdt_loss == "logistic")
+        for (size_t i=0, s=full_set.size(); i<s; i++)
         {
-            for (size_t i=0, s=full_set.size(); i<s; i++)
-            {
-                const XY& xy = full_set.get(i);
-                (*full_residual)[i] += predict(xy.X());
-            }
+            const XY& xy = full_set.get(i);
+            (*full_fx)[i] += predict(xy.X());
         }
-        else
-        {
-            for (size_t i=0, s=full_set.size(); i<s; i++)
-            {
-                const XY& xy = full_set.get(i);
-                (*full_residual)[i] -= predict(xy.X());
-            }
-        }
-    }
-
-    void drain()
-    {
-        set().clear();
-        response_.clear();
-        residual_.clear();
-        if (left())
-            left()->drain();
-        if (right())
-            right()->drain();
     }
 
 public:
-    static void initial_residual(const TreeParam& param, const XYSet& full_set,
-        std::vector<double> * full_residual, double * y0)
+    static void initial_fx(const TreeParam& param, const XYSet& full_set,
+        std::vector<double> * full_fx, double * y0)
     {
-        assert(full_residual->empty());
+        assert(full_fx->empty());
 
         if (param.gbdt_loss == "lad")
         {
-            double median_y = weighted_median_y(full_set);
-
-            for (size_t i=0, s=full_set.size(); i<s; i++)
-            {
-                const XY& xy = full_set.get(i);
-                full_residual->push_back(xy.y() - median_y);
-            }
-
-            *y0 = median_y;
+            *y0 = weighted_median_y(full_set);
+            full_fx->assign(full_set.size(), *y0);
         }
         else if (param.gbdt_loss == "logistic")
         {
-            // very important NOTE:
-            // For logistic loss, "full_residual[i]" stores F_{m-1}(x_i),
-            // i is the subscript of training samples,
-            // m is the subscript of decision trees.
-            // So the name "full_residual" is not appropriate any more.
             double _mean_y = mean_y(full_set);
-            double F0x = 0.5 * log((1+_mean_y) / (1-_mean_y));
-            full_residual->assign(full_set.size(), F0x);
+            *y0 = 0.5 * log((1+_mean_y) / (1-_mean_y));
+            full_fx->assign(full_set.size(), *y0);
         }
         else
         {
-            double _mean_y = mean_y(full_set);
-            for (size_t i=0, s=full_set.size(); i<s; i++)
-            {
-                const XY& xy = full_set.get(i);
-                full_residual->push_back(xy.y() - _mean_y);
-            }
-
-            *y0 = _mean_y;
+            *y0 = mean_y(full_set);
+            full_fx->assign(full_set.size(), *y0);
         }
     }
 
     static TreeLossNode * train(const XYSet& full_set, const TreeParam& param,
-        std::vector<double> * full_residual)
+        std::vector<double> * full_fx)
     {
-        assert(full_set.size() == full_residual->size());
-        TreeLossNode * root = create_root(full_set, param, *full_residual);
+        assert(full_set.size() == full_fx->size());
+        TreeLossNode * root = create_root(full_set, param, *full_fx);
         train(root);
-        root->update_residual(full_set, full_residual);
+        root->update_fx(full_set, full_fx);
         root->drain();
         return root;
     }
@@ -427,11 +359,6 @@ public:
         node->right() = 0;
         return node;
     }
-
-    double& total_loss() {return total_loss_;}
-    double total_loss() const {return total_loss_;}
-    double& loss() {return loss_;}
-    double loss() const {return loss_;}
 
 private:
     void loss_all(
@@ -793,18 +720,18 @@ void GBDTPredictor::clear()
 }
 
 GBDTTrainer::GBDTTrainer(const XYSet& set, const TreeParam& param)
-    : full_set_(set), param_(param), full_residual_() {}
+    : full_set_(set), param_(param), full_fx_() {}
 
 GBDTTrainer::~GBDTTrainer() {}
 
 double GBDTTrainer::ls_loss() const
 {
-    assert(full_set_.size() == full_residual_.size());
+    assert(full_set_.size() == full_fx_.size());
     double loss = 0.0;
     for (size_t i=0, s=full_set_.size(); i<s; i++)
     {
         const XY& xy = full_set_.get(i);
-        double residual = full_residual_[i];
+        double residual = full_set_.get(i).y() - full_fx_[i];
         loss += (residual * residual * xy.weight());
     }
     return loss;
@@ -812,12 +739,12 @@ double GBDTTrainer::ls_loss() const
 
 double GBDTTrainer::lad_loss() const
 {
-    assert(full_set_.size() == full_residual_.size());
+    assert(full_set_.size() == full_fx_.size());
     double loss = 0.0;
     for (size_t i=0, s=full_set_.size(); i<s; i++)
     {
         const XY& xy = full_set_.get(i);
-        double residual = full_residual_[i];
+        double residual = full_set_.get(i).y() - full_fx_[i];
         loss += abs(residual) * xy.weight();
     }
     return loss;
@@ -825,12 +752,13 @@ double GBDTTrainer::lad_loss() const
 
 double GBDTTrainer::logistic_loss() const
 {
-    assert(full_set_.size() == full_residual_.size());
+    assert(full_set_.size() == full_fx_.size());
     double loss = 0.0;
     for (size_t i=0, s=full_set_.size(); i<s; i++)
     {
         const XY& xy = full_set_.get(i);
-        loss += log(1 + exp(-2.0 * xy.y() * full_residual_[i])) * xy.weight();
+        loss += log(1 + exp(-2.0 * xy.y() * full_fx_[i]))
+            * xy.weight();
     }
     return loss;
 }
@@ -882,14 +810,14 @@ void GBDTTrainer::train()
 {
     assert(trees_.empty());
 
-    TreeLossNode::initial_residual(param_, full_set_, &full_residual_, &y0_);
+    TreeLossNode::initial_fx(param_, full_set_, &full_fx_, &y0_);
     if (param_.verbose)
         printf("total_loss=%lf\n", total_loss());
 
     for (size_t i=0; i<param_.gbdt_tree_number; i++)
     {
         printf("training tree No.%d... ", (int)i);
-        TreeLossNode * tree = TreeLossNode::train(full_set_, param_, &full_residual_);
+        TreeLossNode * tree = TreeLossNode::train(full_set_, param_, &full_fx_);
         trees_.push_back(tree);
         if (param_.verbose)
         {

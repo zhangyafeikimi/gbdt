@@ -8,7 +8,7 @@
 #include <algorithm>
 
 template <class T>
-class TreeNode
+class TreeNodeBase
 {
 private:
     const TreeParam& param_;
@@ -17,19 +17,36 @@ private:
     T * left_;
     T * right_;
     XYSetRef set_;
+    // loss of current tree and all preceding trees
+    double total_loss_;
+    // loss of current split
+    double loss_;
 
     // inner node only
+    // split position information
     size_t split_x_index_;
     kXType split_x_type_;
     CompoundValue split_x_value_;
 
     // leaf node only
     bool leaf_;
+    // predicted y in this node
     double y_;
 
 protected:
-    TreeNode(const TreeParam& param, size_t level)
-        : param_(param), level_(level) {}
+    // pseudo response
+    std::vector<double> response_;
+    // F(x) for only training samples in this tree node.
+    // NOTE 1: even for a root node,
+    // it is not the F(x) for the whole tree,
+    // but only the root node.
+    // NOTE 2: F(x) is the sums of predicted y of all preceding trees.
+    std::vector<double> fx_;
+
+protected:
+    TreeNodeBase(const TreeParam& param, size_t level)
+        : param_(param), level_(level),
+        total_loss_(0.0), loss_(0.0) {}
 
 public:
     const TreeParam& param() const {return param_;}
@@ -41,6 +58,10 @@ public:
     const T * right() const {return right_;}
     XYSetRef& set() {return set_;}
     const XYSetRef& set() const {return set_;}
+    double& total_loss() {return total_loss_;}
+    double total_loss() const {return total_loss_;}
+    double& loss() {return loss_;}
+    double loss() const {return loss_;}
 
     size_t& split_x_index() {return split_x_index_;}
     size_t split_x_index() const {return split_x_index_;}
@@ -55,7 +76,7 @@ public:
     double& y() {return y_;}
     double y() const {return y_;}
 
-    virtual ~TreeNode()
+    virtual ~TreeNodeBase()
     {
         if (left_)
             delete left_;
@@ -89,47 +110,38 @@ public:
         }
     }
 
-    void dump_dot(FILE * fp) const
-    {
-        fprintf(fp, "digrapg G{\n");
-        __dump_dot(fp);
-        fprintf(fp, "}\n");
-    }
-
     double predict(const CompoundValueVector& X) const
     {
         return __predict(this, X);
     }
 
+    void drain()
+    {
+        set().clear();
+        response_.clear();
+        fx_.clear();
+        if (left())
+            left()->drain();
+        if (right())
+            right()->drain();
+    }
+
+    // for root
+    void add_xy_set_fxs(const XYSet& full_set, const std::vector<double>& full_fx)
+    {
+        set().load(full_set);
+        fx_ = full_fx;
+    }
+
+    // for non-root
+    void add_xy_fx(const XY& xy, double f)
+    {
+        set().add(xy);
+        fx_.push_back(f);
+    }
+
 private:
-    void __dump_dot(FILE * fp) const
-    {
-        if (is_leaf())
-        {
-            fprintf(fp, "    node%p[label=\"leaf:value=%lf\"];\n", this, y());
-        }
-        else
-        {
-            fprintf(fp, "    node%p[label=\"non-leaf\"];\n", this);
-            if (left())
-                __dump_dot_child(fp, left());
-            if (right())
-                __dump_dot_child(fp, right());
-        }
-    }
-
-    void __dump_dot_child(FILE * fp, const TreeNode * child) const
-    {
-        if (split_is_numerical())
-            fprintf(fp, "    node%p -> node%p[label=\"if (X[%d] <= %lf)\"]\n",
-            this, child, (int)split_x_index(), split_get_double());
-        else
-            fprintf(fp, "    node%p -> node%p[label=\"if (X[%d] <= %d)\"]\n",
-            this, child, (int)split_x_index(), split_get_int());
-        child->__dump_dot(fp);
-    }
-
-    static double __predict(const TreeNode * node, const CompoundValueVector& X)
+    static double __predict(const TreeNodeBase * node, const CompoundValueVector& X)
     {
         for (;;)
         {

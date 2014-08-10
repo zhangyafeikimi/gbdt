@@ -32,6 +32,6 @@ gbdt-train*
 gbdt-predict*
 gbdt-benchmark*
 
-output.json
+output*.json
 output.cc
 output.h

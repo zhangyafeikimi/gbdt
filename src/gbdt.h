@@ -29,7 +29,7 @@ class GBDTTrainer : public GBDTPredictor
 private:
     const XYSet& full_set_;
     const TreeParam& param_;
-    std::vector<double> full_residual_;
+    std::vector<double> full_fx_;
     double ls_loss() const;
     double lad_loss() const;
     double logistic_loss() const;
