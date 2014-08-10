@@ -220,6 +220,7 @@ private:
             {
                 node->leaf() = true;
                 node->update_predicted_y();
+                node->shrink();
                 leaf_size++;
                 continue;
             }
@@ -228,8 +229,6 @@ private:
             stack.push_back(node->left());
             stack.push_back(node->right());
         }
-
-        shrink();
     }
 
     void split(TreeNodeBase * parent) const
@@ -275,6 +274,13 @@ private:
         _right->update_response();
         assert(parent->set().size() ==
             _left->set().size() + _right->set().size());
+    }
+
+    void shrink()
+    {
+        if (param().gbdt_learning_rate >= 1.0)
+            return;
+        y() = y() * param().gbdt_learning_rate;
     }
 
     void update_fx(const XYSet& full_set, std::vector<double> * full_fx) const
@@ -446,31 +452,8 @@ private:
         *_loss = loss;
     }
 
-    void shrink()
-    {
-        if (param().gbdt_learning_rate >= 1.0)
-            return;
-        __shrink(this, param().gbdt_learning_rate);
-    }
-
-    static void __shrink(TreeNodeBase * node, double rate)
-    {
-        if (node->is_leaf())
-            node->y() *= rate;
-        else
-        {
-            TreeNodeBase * left = node->left();
-            assert(left);
-            __shrink(left, rate);
-            TreeNodeBase * right = node->right();
-            assert(right);
-            __shrink(right, rate);
-        }
-    }
-
     static double __predict(const TreeNodeBase * node, const CompoundValueVector& X)
     {
-        // TODO
         for (;;)
         {
             if (node->is_leaf())

@@ -111,7 +111,7 @@ private:
         size_t k = 0;
         double sum = S - (*xw)[0].w;
 
-        while(sum > S/2)
+        while(sum > S/2.0)
         {
             ++k;
             sum -= (*xw)[k].w;
@@ -245,12 +245,11 @@ protected:
             double abs_response = abs(response);
 
             numerator += response * weight;
-            denominator += abs_response * (2 - abs_response) * weight;
+            denominator += abs_response * (2.0 - abs_response) * weight;
         }
 
-        double _y = numerator / denominator;
         // readjust
-        y() = _y;
+        y() = numerator / denominator;
     }
 };
 
