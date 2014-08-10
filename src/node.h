@@ -117,8 +117,10 @@ public:
     size_t& split_x_index() {return split_x_index_;}
     size_t split_x_index() const {return split_x_index_;}
     kXType& split_x_type() {return split_x_type_;}
-    bool split_is_numerical() const {return split_x_type_ == kXType_Numerical;}
+    kXType split_x_type() const {return split_x_type_;}
     CompoundValue& split_x_value() {return split_x_value_;}
+    const CompoundValue& split_x_value() const {return split_x_value_;}
+    bool split_is_numerical() const {return split_x_type_ == kXType_Numerical;}
     double split_get_double() const {return split_x_value_.d();}
     int split_get_int() const {return split_x_value_.i();}
     bool& leaf() {return leaf_;}
@@ -142,7 +144,7 @@ public:
     {
         assert(full_set.size() == full_fx->size());
         TreeNodeBase * root = create_root(full_set, param, *full_fx);
-        train(root);
+        root->build_tree();
         root->update_fx(full_set, full_fx);
         root->drain();
         return root;
@@ -199,11 +201,11 @@ private:
         fx_.push_back(f);
     }
 
-    void train(TreeNodeBase * root) const
+    void build_tree()
     {
-        const TreeParam& param = root->param();
+        const TreeParam& _param = param();
         std::list<TreeNodeBase *> stack;
-        stack.push_back(root);
+        stack.push_back(this);
         size_t leaf_size = 0;
 
         while (!stack.empty())
@@ -212,11 +214,12 @@ private:
             stack.pop_back();
 
             size_t level = node->level();
-            if (level >= param.max_level
-                || leaf_size >= param.max_leaf_number
-                || node->set().size() <= param.min_values_in_leaf)
+            if (level >= _param.max_level
+                || leaf_size >= _param.max_leaf_number
+                || node->set().size() <= _param.min_values_in_leaf)
             {
                 node->leaf() = true;
+                node->update_predicted_y();
                 leaf_size++;
                 continue;
             }
@@ -226,7 +229,7 @@ private:
             stack.push_back(node->right());
         }
 
-        root->shrink();
+        shrink();
     }
 
     void split(TreeNodeBase * parent) const
@@ -274,6 +277,15 @@ private:
             _left->set().size() + _right->set().size());
     }
 
+    void update_fx(const XYSet& full_set, std::vector<double> * full_fx) const
+    {
+        for (size_t i=0, s=full_set.size(); i<s; i++)
+        {
+            const XY& xy = full_set.get(i);
+            (*full_fx)[i] += predict(xy.X());
+        }
+    }
+
     void drain()
     {
         set().clear();
@@ -283,15 +295,6 @@ private:
             left()->drain();
         if (right())
             right()->drain();
-    }
-
-    void update_fx(const XYSet& full_set, std::vector<double> * full_fx) const
-    {
-        for (size_t i=0, s=full_set.size(); i<s; i++)
-        {
-            const XY& xy = full_set.get(i);
-            (*full_fx)[i] += predict(xy.X());
-        }
     }
 
     // get some unique x values(get most 'max_size' x values)
@@ -416,13 +419,6 @@ private:
         *_y_left = y_left;
         *_y_right = y_right;
         __loss_x(_split_x_index, _split_x_type, _split_x_value, y_left, y_right, _loss);
-
-        update_predicted_y_for_children(
-            _split_x_index,
-            _split_x_type,
-            _split_x_value,
-            _y_left,
-            _y_right);
     }
 
     void __loss_x(
@@ -474,25 +470,18 @@ private:
 
     static double __predict(const TreeNodeBase * node, const CompoundValueVector& X)
     {
+        // TODO
         for (;;)
         {
             if (node->is_leaf())
                 return node->y();
 
-            if (node->split_is_numerical())
-            {
-                if (X[node->split_x_index()].d() <= node->split_get_double())
-                    node = node->left();
-                else
-                    node = node->right();
-            }
+            const CompoundValue& x = X[node->split_x_index()];
+            const CompoundValue& _split_x_value = node->split_x_value();
+            if (X_LIES_LEFT(x, _split_x_value, node->split_x_type()))
+                node = node->left();
             else
-            {
-                if (X[node->split_x_index()].i() == node->split_get_int())
-                    node = node->left();
-                else
-                    node = node->right();
-            }
+                node = node->right();
             assert(node);
         }
     }
@@ -511,12 +500,7 @@ public:
 
 protected:
     virtual void update_response() = 0;
-    virtual void update_predicted_y_for_children(
-        size_t _split_x_index,
-        kXType _split_x_type,
-        const CompoundValue& _split_x_value,
-        double * _y_left,
-        double * _y_right) const = 0;
+    virtual void update_predicted_y() = 0;
 };
 
 static const TreeParam EMPTY_PARAM;
@@ -551,12 +535,7 @@ public:
 
 protected:
     virtual void update_response() {assert(0);}
-    virtual void update_predicted_y_for_children(
-        size_t _split_x_index,
-        kXType _split_x_type,
-        const CompoundValue& _split_x_value,
-        double * _y_left,
-        double * _y_right) const {assert(0);}
+    virtual void update_predicted_y() {assert(0);}
 };
 
 #endif// GBDT_NODE_H

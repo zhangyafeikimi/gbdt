@@ -17,9 +17,9 @@ int main()
     param.max_x_values_number = 200;
     param.min_values_in_leaf = 10;
     param.gbdt_tree_number = 400;
-    param.gbdt_learning_rate = 0.1;
     param.gbdt_sample_rate = 0.9;
 
+    param.gbdt_learning_rate = 0.025;
     param.gbdt_loss = "logistic";
     {
         GBDTTrainer trainer(set, param);
@@ -44,30 +44,32 @@ int main()
         }
     }
 
-    param.gbdt_loss = "ls";
-    {
-        GBDTTrainer trainer(set, param);
-        trainer.train();
+    //param.gbdt_learning_rate = 0.05;
+    //param.gbdt_loss = "ls";
+    //{
+    //    GBDTTrainer trainer(set, param);
+    //    trainer.train();
 
-        FILE * output = xfopen("output.ls.json", "w");
-        trainer.save_json(output);
-        fclose(output);
+    //    FILE * output = xfopen("output.ls.json", "w");
+    //    trainer.save_json(output);
+    //    fclose(output);
 
-        GBDTPredictor predictor;
-        FILE * input = xfopen("output.ls.json", "r");
-        predictor.load_json(input);
-        fclose(input);
+    //    GBDTPredictor predictor;
+    //    FILE * input = xfopen("output.ls.json", "r");
+    //    predictor.load_json(input);
+    //    fclose(input);
 
-        for (size_t i=0, s=set.size(); i<s; i++)
-        {
-            const XY& xy = set.get(i);
-            const CompoundValueVector& X = xy.X();
-            double y = xy.y();
-            printf("F(x)=%lf=%lf, y=%lf\n",
-                trainer.predict(X), predictor.predict(X), y);
-        }
-    }
+    //    for (size_t i=0, s=set.size(); i<s; i++)
+    //    {
+    //        const XY& xy = set.get(i);
+    //        const CompoundValueVector& X = xy.X();
+    //        double y = xy.y();
+    //        printf("F(x)=%lf=%lf, y=%lf\n",
+    //            trainer.predict(X), predictor.predict(X), y);
+    //    }
+    //}
 
+    //param.gbdt_learning_rate = 0.01;
     //param.gbdt_loss = "lad";
     //{
     //    GBDTTrainer trainer(set, param);

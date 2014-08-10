@@ -5,7 +5,7 @@
 #include <rapidjson/writer.h>
 #include <math.h>
 
-static double mean_y(const XYSet& full_set)
+static double weighted_mean_y(const XYSet& full_set)
 {
     double total_y  = 0.0;
     double total_weight = 0.0;
@@ -40,7 +40,7 @@ public:
         std::vector<double> * full_fx,
         double * y0) const
     {
-        *y0 = mean_y(full_set);
+        *y0 = weighted_mean_y(full_set);
         full_fx->assign(full_set.size(), *y0);
     }
 
@@ -67,12 +67,7 @@ protected:
             response_.push_back((set().get(i).y() - fx_[i]));
     }
 
-    virtual void update_predicted_y_for_children(
-        size_t _split_x_index,
-        kXType _split_x_type,
-        const CompoundValue& _split_x_value,
-        double * _y_left,
-        double * _y_right) const {}
+    virtual void update_predicted_y() {}
 };
 
 /************************************************************************/
@@ -176,47 +171,22 @@ protected:
             response_.push_back(sign((set().get(i).y() - fx_[i])));
     }
 
-    virtual void update_predicted_y_for_children(
-        size_t _split_x_index,
-        kXType _split_x_type,
-        const CompoundValue& _split_x_value,
-        double * _y_left,
-        double * _y_right) const
+    virtual void update_predicted_y()
     {
-        double y_left = 0.0;
-        double y_right = 0.0;
-
-        std::vector<XW> response_left;
-        std::vector<XW> response_right;
-
+        std::vector<XW> response_weight;
         for (size_t i=0, s=set().size(); i<s; i++)
         {
             const XY& xy = set().get(i);
-            const CompoundValue& x = xy.x(_split_x_index);
-            double weight = xy.weight();
-            double response = response_[i];
-            if (X_LIES_LEFT(x, _split_x_value, _split_x_type))
-                response_left.push_back(XW(response, weight));
-            else
-                response_right.push_back(XW(response, weight));
+            response_weight.push_back(XW(response_[i], xy.weight()));
         }
-
-        if (!response_left.empty())
-            y_left = weighted_median(&response_left);
-        if (!response_right.empty())
-            y_right = weighted_median(&response_right);
-
         // readjust leaf values by the weighted median values
-        *_y_left = y_left;
-        *_y_right = y_right;
+        y() = weighted_median(&response_weight);
     }
 };
 
 /************************************************************************/
 /* LogisticLossNode */
 /************************************************************************/
-static const double LOGISTIC_Y_BOUND = 10.0;
-
 class LogisticLossNode : public TreeNodeBase
 {
 public:
@@ -233,7 +203,7 @@ public:
     virtual void initial_fx(const XYSet& full_set,
         std::vector<double> * full_fx, double * y0) const
     {
-        double _mean_y = mean_y(full_set);
+        double _mean_y = weighted_mean_y(full_set);
         *y0 = 0.5 * log((1+_mean_y) / (1-_mean_y));
         full_fx->assign(full_set.size(), *y0);
     }
@@ -264,47 +234,23 @@ protected:
         }
     }
 
-    virtual void update_predicted_y_for_children(
-        size_t _split_x_index,
-        kXType _split_x_type,
-        const CompoundValue& _split_x_value,
-        double * _y_left,
-        double * _y_right) const
+    virtual void update_predicted_y()
     {
-        double y_left = 0.0;
-        double y_right = 0.0;
-
-        double left_numerator = 0.0, left_denominator = 0.0;
-        double right_numerator = 0.0, right_denominator = 0.0;
-
+        double numerator = 0.0, denominator = 0.0;
         for (size_t i=0, s=set().size(); i<s; i++)
         {
             const XY& xy = set().get(i);
-            const CompoundValue& x = xy.x(_split_x_index);
             double weight = xy.weight();
             double response = response_[i];
             double abs_response = abs(response);
-            if (X_LIES_LEFT(x, _split_x_value, _split_x_type))
-            {
-                left_numerator += response * weight;
-                right_denominator += abs_response * (2 - abs_response) * weight;
-            }
-            else
-            {
-                right_numerator += response * weight;
-                left_denominator += abs_response * (2 - abs_response) * weight;
-            }
+
+            numerator += response * weight;
+            denominator += abs_response * (2 - abs_response) * weight;
         }
 
-        y_left = left_numerator / left_denominator;
-        y_right = right_numerator / right_denominator;
-        // bound y
-        y_left = std::min(std::max(-LOGISTIC_Y_BOUND, y_left), LOGISTIC_Y_BOUND);
-        y_right = std::min(std::max(-LOGISTIC_Y_BOUND, y_right), LOGISTIC_Y_BOUND);
-
+        double _y = numerator / denominator;
         // readjust
-        *_y_left = y_left;
-        *_y_right = y_right;
+        y() = _y;
     }
 };
 
