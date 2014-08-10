@@ -11,14 +11,12 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\src\gain.cc" />
     <ClCompile Include="..\src\gbdt.cc" />
     <ClCompile Include="..\src\param.cc" />
     <ClCompile Include="..\src\sample.cc" />
     <ClCompile Include="..\src\x.cc" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\src\gain.h" />
     <ClInclude Include="..\src\gbdt.h" />
     <ClInclude Include="..\src\param.h" />
     <ClInclude Include="..\src\sample.h" />

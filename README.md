@@ -27,8 +27,6 @@ Configuration File
 
 >max_x_values_number = 200
 
->leaf_threshold = 0.75
-
 >min_values_in_leaf = 10
 
 >gbdt_tree_number = 400
@@ -61,12 +59,6 @@ Max number of leaf node in all decision trees.
 
 ####max_x_values_number
 Max unique values of one feature used when a tree node is being split by this feature.
-
-####leaf_threshold
-It should be in [0.0, 1.0].
-
-It is not used in GBDT, used only in decision tree for classification.
-**ml-gbdt** will stop splitting a node when it satisfies **max(positive training samples, negative training samples) / total training sample >= leaf_threshold**, and make it a leaf node.
 
 ####min_values_in_leaf
 It should be >= 1.
@@ -145,10 +137,6 @@ It is in json and very easy to understand.
 
 Others
 -----
-### Classical Decision Tree
-class "TreeGain" in gain.h is an implementation of classical decision tree for classification based on information gain.
-It can be accessed only through libgbdt. No command line tools supporting it.
-
 ### json2cxx.py
 "json2cxx.py" lies in directory "tools".
 It can be used to convert a model(json) to a c++ predicting function, so that an interpreter for predicting is avoided.

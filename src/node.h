@@ -65,6 +65,8 @@ public:
 
     // get some unique x values(get most 'max_size' x values)
     // for finding the 'best' x split
+    // TODO: if learning rate is 1.0,
+    // we can get a pre-sorted list of unique x values
     void get_unique_x_values(
         size_t x_index,
         size_t max_size,
@@ -76,7 +78,9 @@ public:
 
         kXType xtype = set().get_xtype(x_index);
         if (xtype == kXType_Numerical)
+        {
             std::sort(x_values->begin(), x_values->end(), CompoundValueDoubleLess());
+        }
         else
         {
             std::sort(x_values->begin(), x_values->end(), CompoundValueIntLess());

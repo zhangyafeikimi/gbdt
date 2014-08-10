@@ -4,6 +4,8 @@
 #include <stddef.h>
 #include <string>
 
+// global parameters for a learning job
+// see README for their meanings
 struct TreeParam
 {
     int verbose;
@@ -11,7 +13,6 @@ struct TreeParam
     size_t max_level;
     size_t max_leaf_number;
     size_t max_x_values_number;
-    double leaf_threshold;
     size_t min_values_in_leaf;
 
     size_t gbdt_tree_number;

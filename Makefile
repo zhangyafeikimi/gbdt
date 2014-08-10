@@ -9,7 +9,7 @@ LIBS =
 
 all: libgbdt.a gbdt-train gbdt-predict gbdt-benchmark
 
-libgbdt.a: src/gain.o src/gbdt.o src/param.o src/sample.o src/x.o
+libgbdt.a: src/gbdt.o src/param.o src/sample.o src/x.o
 	$(AR) -rc $@ $?
 	$(RANLIB) $@
 

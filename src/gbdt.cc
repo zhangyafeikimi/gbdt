@@ -52,7 +52,7 @@ static double weighted_median(std::vector<XW> * xw)
     return (*xw)[k].x;
 }
 
-static double median_y(const XYSet& full_set)
+static double weighted_median_y(const XYSet& full_set)
 {
     std::vector<XW> xw;
     for (size_t i=0, s=full_set.size(); i<s; i++)
@@ -374,13 +374,7 @@ public:
 
         if (param.gbdt_loss == "lad")
         {
-            std::vector<XW> xw;
-            for (size_t i=0, s=full_set.size(); i<s; i++)
-            {
-                const XY& xy = full_set.get(i);
-                xw.push_back(XW(xy.y(), xy.weight()));
-            }
-            double median_y = weighted_median(&xw);
+            double median_y = weighted_median_y(full_set);
 
             for (size_t i=0, s=full_set.size(); i<s; i++)
             {
@@ -591,7 +585,6 @@ private:
             {
                 const XY& xy = set().get(i);
                 double x = xy.x(_split_x_index).d();
-                double y = xy.y();
                 double weight = xy.weight();
                 double response = response_[i];
                 double abs_response = abs(response);
@@ -699,7 +692,6 @@ private:
             {
                 const XY& xy = set().get(i);
                 int x = xy.x(_split_x_index).i();
-                double y = xy.y();
                 double weight = xy.weight();
                 double response = response_[i];
                 double abs_response = abs(response);

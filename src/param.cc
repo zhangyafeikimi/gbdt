@@ -44,8 +44,6 @@ private:
             param->max_leaf_number = (size_t)xatoi(value.c_str());
         else if (key == "max_x_values_number")
             param->max_x_values_number = (size_t)xatoi(value.c_str());
-        else if (key == "leaf_threshold")
-            param->leaf_threshold = xatof(value.c_str());
         else if (key == "min_values_in_leaf")
         {
             param->min_values_in_leaf = (size_t)xatoi(value.c_str());
@@ -177,7 +175,6 @@ int parse_tree_param(int argc, char ** argv, TreeParam * param)
     param->max_level = 5;
     param->max_leaf_number = 20;
     param->max_x_values_number = 200;
-    param->leaf_threshold = 0.75;
     param->min_values_in_leaf = 10;
     param->gbdt_tree_number = 400;
     param->gbdt_learning_rate = 0.1;

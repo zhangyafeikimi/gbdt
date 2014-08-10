@@ -28,9 +28,9 @@ Release
 *test
 *log
 
-gbdt-train
-gbdt-predict
-gbdt-benchmark
+gbdt-train*
+gbdt-predict*
+gbdt-benchmark*
 
 output.json
 output.cc
