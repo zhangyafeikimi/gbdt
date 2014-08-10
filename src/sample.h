@@ -10,8 +10,8 @@
 
 enum kXType
 {
-    kXType_Numerical = 0,
-    kXType_Category
+    kXType_Category = 0,
+    kXType_Numerical = 1,
 };
 
 // training sample specification
@@ -117,7 +117,6 @@ public:
 
     double& y() {return y_;}
     double y() const {return y_;}
-    bool is_positive() const {return y_ >= EPS;}
 
     double& weight() {return weight_;}
     double weight() const {return weight_;}
@@ -156,8 +155,6 @@ class XYSetRef
 private:
     const XYSpec * spec_;
     std::vector<const XY *> samples_;
-    double positive_;
-    double negative_;
 
 public:
     XYSetRef() {clear();}
@@ -171,9 +168,6 @@ public:
     size_t size() const {return samples_.size();}
     const XY& get(size_t i) const {return *samples_[i];}
 
-    double positive() const {return positive_;}
-    double negative() const {return negative_;}
-
     void load(const XYSet& set)
     {
         spec_ = &set.spec();
@@ -184,10 +178,6 @@ public:
 
     void add(const XY& xy)
     {
-        if (xy.is_positive())
-            positive_ += xy.weight();
-        else
-            negative_ += xy.weight();
         samples_.push_back(&xy);
     }
 
@@ -195,8 +185,6 @@ public:
     {
         spec_ = 0;
         samples_.clear();
-        positive_ = 0.0;
-        negative_ = 0.0;
     }
 };
 

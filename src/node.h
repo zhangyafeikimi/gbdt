@@ -5,17 +5,69 @@
 #include "sample.h"
 #include <assert.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <algorithm>
+#include <limits>
+#include <list>
 
-template <class T>
+#if defined USE_10000_RANDOM
+// If we want to get a deterministic sequence of random number,
+// turn on macro "USE_10000_RANDOM".
+class Rand01
+{
+private:
+    static float data_[10000];
+    const float rate_;
+    size_t i_;
+
+public:
+    explicit Rand01(double rate)
+        : rate_((float)rate), i_(0) {}
+
+    bool is_one()
+    {
+        i_ = (i_+1) % 10000;
+        return data_[i_] < rate_;
+    }
+};
+
+float Rand01::data_[10000] = {
+#include "10000float.inl"
+};
+#else
+class Rand01
+{
+private:
+    const int threshold_1_;
+    unsigned seed_;
+
+public:
+    explicit Rand01(double rate_1)
+        : threshold_1_((int)(rate_1 * RAND_MAX)), seed_(0) {}
+
+    bool is_one()
+    {
+#if defined _WIN32
+        int i = rand();
+#else
+        int i = rand_r(&seed_);
+#endif
+        return i < threshold_1_;
+    }
+};
+#endif
+
+#define X_LIES_LEFT(x, _split_x_value, _split_x_type) \
+    (_split_x_type)?((x.d()) <= (_split_x_value.d())):((x.i()) == (_split_x_value.i()))
+
 class TreeNodeBase
 {
 private:
     const TreeParam& param_;
     const size_t level_;
 
-    T * left_;
-    T * right_;
+    TreeNodeBase * left_;
+    TreeNodeBase * right_;
     XYSetRef set_;
     // loss of current tree and all preceding trees
     double total_loss_;
@@ -30,7 +82,7 @@ private:
 
     // leaf node only
     bool leaf_;
-    // predicted y in this node
+    // predicted y in this leaf node
     double y_;
 
 protected:
@@ -46,23 +98,22 @@ protected:
 protected:
     TreeNodeBase(const TreeParam& param, size_t level)
         : param_(param), level_(level),
+        left_(0), right_(0),
         total_loss_(0.0), loss_(0.0) {}
 
 public:
     const TreeParam& param() const {return param_;}
     size_t level() const {return level_;}
-
-    T *& left() {return left_;}
-    const T * left() const {return left_;}
-    T *& right() {return right_;}
-    const T * right() const {return right_;}
+    TreeNodeBase *& left() {return left_;}
+    const TreeNodeBase * left() const {return left_;}
+    TreeNodeBase *& right() {return right_;}
+    const TreeNodeBase * right() const {return right_;}
     XYSetRef& set() {return set_;}
     const XYSetRef& set() const {return set_;}
     double& total_loss() {return total_loss_;}
     double total_loss() const {return total_loss_;}
     double& loss() {return loss_;}
     double loss() const {return loss_;}
-
     size_t& split_x_index() {return split_x_index_;}
     size_t split_x_index() const {return split_x_index_;}
     kXType& split_x_type() {return split_x_type_;}
@@ -70,12 +121,12 @@ public:
     CompoundValue& split_x_value() {return split_x_value_;}
     double split_get_double() const {return split_x_value_.d();}
     int split_get_int() const {return split_x_value_.i();}
-
     bool& leaf() {return leaf_;}
     bool is_leaf() const {return leaf_;}
     double& y() {return y_;}
     double y() const {return y_;}
 
+public:
     virtual ~TreeNodeBase()
     {
         if (left_)
@@ -84,10 +135,169 @@ public:
             delete right_;
     }
 
+    TreeNodeBase * train(
+        const XYSet& full_set,
+        const TreeParam& param,
+        std::vector<double> * full_fx) const
+    {
+        assert(full_set.size() == full_fx->size());
+        TreeNodeBase * root = create_root(full_set, param, *full_fx);
+        train(root);
+        root->update_fx(full_set, full_fx);
+        root->drain();
+        return root;
+    }
+
+    double predict(const CompoundValueVector& X) const
+    {
+        return __predict(this, X);
+    }
+
+private:
+    TreeNodeBase * create_root(
+        const XYSet& full_set,
+        const TreeParam& param,
+        const std::vector<double>& full_fx) const
+    {
+        TreeNodeBase * root = clone(param, 0);
+        root->leaf() = false;
+
+        XYSetRef& root_xy_set = root->set();
+        if (param.gbdt_sample_rate >= 1.0)
+        {
+            root->add_xy_set_fxs(full_set, full_fx);
+        }
+        else
+        {
+            // sample 'full_set' and 'full_fx' together
+            root_xy_set.spec() = &full_set.spec();
+            Rand01 r(param.gbdt_sample_rate);
+            for (size_t i=0, s=full_set.size(); i<s; i++)
+            {
+                if (r.is_one())
+                    root->add_xy_fx(full_set.get(i), full_fx[i]);
+            }
+        }
+        assert(root_xy_set.get_xtype_size() != 0);
+        assert(root_xy_set.size() != 0);
+
+        root->update_response();
+        return root;
+    }
+
+    // for root
+    inline void add_xy_set_fxs(const XYSet& full_set, const std::vector<double>& full_fx)
+    {
+        set().load(full_set);
+        fx_ = full_fx;
+    }
+
+    // for root and non-root
+    inline void add_xy_fx(const XY& xy, double f)
+    {
+        set().add(xy);
+        fx_.push_back(f);
+    }
+
+    void train(TreeNodeBase * root) const
+    {
+        const TreeParam& param = root->param();
+        std::list<TreeNodeBase *> stack;
+        stack.push_back(root);
+        size_t leaf_size = 0;
+
+        while (!stack.empty())
+        {
+            TreeNodeBase * node = stack.back();
+            stack.pop_back();
+
+            size_t level = node->level();
+            if (level >= param.max_level
+                || leaf_size >= param.max_leaf_number
+                || node->set().size() <= param.min_values_in_leaf)
+            {
+                node->leaf() = true;
+                leaf_size++;
+                continue;
+            }
+
+            split(node);
+            stack.push_back(node->left());
+            stack.push_back(node->right());
+        }
+
+        root->shrink();
+    }
+
+    void split(TreeNodeBase * parent) const
+    {
+        XYSetRef& parent_xy_set = parent->set();
+        assert(parent_xy_set.size() != 0);
+        double y_left = 0.0;
+        double y_right = 0.0;
+        parent->min_loss_on_all_features(&parent->split_x_index(),
+            &parent->split_x_type(),
+            &parent->split_x_value(),
+            &y_left,
+            &y_right,
+            &parent->loss());
+
+        TreeNodeBase * _left = clone(parent->param(), parent->level() + 1);
+        _left->set().spec() = parent_xy_set.spec();
+        _left->leaf() = false;
+        _left->y() = y_left;
+
+        TreeNodeBase * _right = clone(parent->param(), parent->level() + 1);
+        _right->set().spec() = parent_xy_set.spec();
+        _right->leaf() = false;
+        _right->y() = y_right;
+
+        parent->left() = _left;
+        parent->right() = _right;
+
+        size_t _split_x_index = parent->split_x_index();
+        const CompoundValue& _split_x_value = parent->split_x_value();
+        for (size_t i=0, s=parent_xy_set.size(); i<s; i++)
+        {
+            double fx = parent->fx_[i];
+            const XY& xy = parent_xy_set.get(i);
+            const CompoundValue& x = xy.x(_split_x_index);
+            if (X_LIES_LEFT(x, _split_x_value, parent->split_x_type()))
+                _left->add_xy_fx(xy, fx);
+            else
+                _right->add_xy_fx(xy, fx);
+        }
+
+        _left->update_response();
+        _right->update_response();
+        assert(parent->set().size() ==
+            _left->set().size() + _right->set().size());
+    }
+
+    void drain()
+    {
+        set().clear();
+        response_.clear();
+        fx_.clear();
+        if (left())
+            left()->drain();
+        if (right())
+            right()->drain();
+    }
+
+    void update_fx(const XYSet& full_set, std::vector<double> * full_fx) const
+    {
+        for (size_t i=0, s=full_set.size(); i<s; i++)
+        {
+            const XY& xy = full_set.get(i);
+            (*full_fx)[i] += predict(xy.X());
+        }
+    }
+
     // get some unique x values(get most 'max_size' x values)
     // for finding the 'best' x split
-    // TODO: if learning rate is 1.0,
-    // we can get a pre-sorted list of unique x values
+    // TODO: If learning rate is 1.0,
+    // we can get a pre-sorted list of unique x values.
     void get_unique_x_values(
         size_t x_index,
         size_t max_size,
@@ -110,37 +320,158 @@ public:
         }
     }
 
-    double predict(const CompoundValueVector& X) const
+    void min_loss_on_all_features(
+        size_t * _split_x_index,
+        kXType * _split_x_type,
+        CompoundValue * _split_x_value,
+        double * _y_left,
+        double * _y_right,
+        double * min_loss) const
     {
-        return __predict(this, X);
+        *min_loss = std::numeric_limits<double>::max();
+        for (size_t x_index=0, s=set().get_xtype_size(); x_index<s; x_index++)
+        {
+            kXType x_type = set().get_xtype(x_index);
+            CompoundValue x_value;
+            double y_left = 0.0;
+            double y_right = 0.0;
+            double loss;
+            min_loss_on_one_feature(x_index, x_type, &x_value, &y_left, &y_right, &loss);
+            if (loss < *min_loss)
+            {
+                *_split_x_index = x_index;
+                *_split_x_type = x_type;
+                *_split_x_value = x_value;
+                *_y_left = y_left;
+                *_y_right = y_right;
+                *min_loss = loss;
+            }
+        }
     }
 
-    void drain()
+    void min_loss_on_one_feature(
+        size_t _split_x_index,
+        kXType _split_x_type,
+        CompoundValue * _split_x_value,
+        double * _y_left,
+        double * _y_right,
+        double * min_loss) const
     {
-        set().clear();
-        response_.clear();
-        fx_.clear();
-        if (left())
-            left()->drain();
-        if (right())
-            right()->drain();
+        CompoundValueVector x_values;
+        get_unique_x_values(_split_x_index, param().max_x_values_number, &x_values);
+        *min_loss = std::numeric_limits<double>::max();
+        for (size_t i=0, s=x_values.size(); i<s; i++)
+        {
+            const CompoundValue& x_value = x_values[i];
+            double y_left;
+            double y_right;
+            double loss;
+            loss_x(_split_x_index, _split_x_type, x_value, &y_left, &y_right, &loss);
+            if (loss < *min_loss)
+            {
+                *_split_x_value = x_value;
+                *_y_left = y_left;
+                *_y_right = y_right;
+                *min_loss = loss;
+            }
+        }
     }
 
-    // for root
-    void add_xy_set_fxs(const XYSet& full_set, const std::vector<double>& full_fx)
+    void loss_x(
+        size_t _split_x_index,
+        kXType _split_x_type,
+        const CompoundValue& _split_x_value,
+        double * _y_left,
+        double * _y_right,
+        double * _loss) const
     {
-        set().load(full_set);
-        fx_ = full_fx;
+        double n_left = 0.0;
+        double n_right = 0.0;
+        double y_left = 0.0;
+        double y_right = 0.0;
+
+        for (size_t i=0, s=set().size(); i<s; i++)
+        {
+            const XY& xy = set().get(i);
+            const CompoundValue& x = xy.x(_split_x_index);
+            double weight = xy.weight();
+            double response = response_[i];
+            if (X_LIES_LEFT(x, _split_x_value, _split_x_type))
+            {
+                y_left += response * weight;
+                n_left += weight;
+            }
+            else
+            {
+                y_right += response * weight;
+                n_right += weight;
+            }
+        }
+
+        if (n_left > EPS)
+            y_left /= n_left;
+        if (n_right > EPS)
+            y_right /= n_right;
+
+        *_y_left = y_left;
+        *_y_right = y_right;
+        __loss_x(_split_x_index, _split_x_type, _split_x_value, y_left, y_right, _loss);
+
+        update_predicted_y_for_children(
+            _split_x_index,
+            _split_x_type,
+            _split_x_value,
+            _y_left,
+            _y_right);
     }
 
-    // for non-root
-    void add_xy_fx(const XY& xy, double f)
+    void __loss_x(
+        size_t _split_x_index,
+        kXType _split_x_type,
+        const CompoundValue& _split_x_value,
+        double _y_left,
+        double _y_right,
+        double * _loss) const
     {
-        set().add(xy);
-        fx_.push_back(f);
+        double loss = 0.0;
+        for (size_t i=0, s=set().size(); i<s; i++)
+        {
+            const XY& xy = set().get(i);
+            const CompoundValue& x = xy.x(_split_x_index);
+            double weight = xy.weight();
+            double diff;
+            if (X_LIES_LEFT(x, _split_x_value, _split_x_type))
+                diff = response_[i] - _y_left;
+            else
+                diff = response_[i] - _y_right;
+            // weighted square loss
+            loss += (diff * diff * weight);
+        }
+        *_loss = loss;
     }
 
-private:
+    void shrink()
+    {
+        if (param().gbdt_learning_rate >= 1.0)
+            return;
+        __shrink(this, param().gbdt_learning_rate);
+    }
+
+    static void __shrink(TreeNodeBase * node, double rate)
+    {
+        if (node->is_leaf())
+            node->y() *= rate;
+        else
+        {
+            TreeNodeBase * left = node->left();
+            assert(left);
+            __shrink(left, rate);
+            TreeNodeBase * right = node->right();
+            assert(right);
+            __shrink(right, rate);
+        }
+    }
+
     static double __predict(const TreeNodeBase * node, const CompoundValueVector& X)
     {
         for (;;)
@@ -165,6 +496,67 @@ private:
             assert(node);
         }
     }
+
+public:
+    virtual TreeNodeBase * clone(
+        const TreeParam& param,
+        size_t level) const = 0;
+    virtual void initial_fx(
+        const XYSet& full_set,
+        std::vector<double> * full_fx,
+        double * y0) const = 0;
+    virtual double total_loss(
+        const XYSet& full_set,
+        const std::vector<double>& full_fx) const = 0;
+
+protected:
+    virtual void update_response() = 0;
+    virtual void update_predicted_y_for_children(
+        size_t _split_x_index,
+        kXType _split_x_type,
+        const CompoundValue& _split_x_value,
+        double * _y_left,
+        double * _y_right) const = 0;
+};
+
+static const TreeParam EMPTY_PARAM;
+
+class TreeNodePredictor : public TreeNodeBase
+{
+private:
+    TreeNodePredictor(size_t level)
+        : TreeNodeBase(EMPTY_PARAM, level) {}
+
+public:
+    static TreeNodePredictor * create()
+    {
+        TreeNodePredictor * node = new TreeNodePredictor(0);
+        node->left() = 0;
+        node->right() = 0;
+        return node;
+    }
+
+    virtual TreeNodeBase * clone(
+        const TreeParam& param,
+        size_t level) const
+    {assert(0);return 0;}
+    virtual void initial_fx(
+        const XYSet& full_set,
+        std::vector<double> * full_fx,
+        double * y0) const {assert(0);}
+    virtual double total_loss(
+        const XYSet& full_set,
+        const std::vector<double>& full_fx) const
+    {assert(0);return 0.0;}
+
+protected:
+    virtual void update_response() {assert(0);}
+    virtual void update_predicted_y_for_children(
+        size_t _split_x_index,
+        kXType _split_x_type,
+        const CompoundValue& _split_x_value,
+        double * _y_left,
+        double * _y_right) const {assert(0);}
 };
 
 #endif// GBDT_NODE_H

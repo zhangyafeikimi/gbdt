@@ -44,29 +44,29 @@ int main()
         }
     }
 
-    //param.gbdt_loss = "ls";
-    //{
-    //    GBDTTrainer trainer(set, param);
-    //    trainer.train();
+    param.gbdt_loss = "ls";
+    {
+        GBDTTrainer trainer(set, param);
+        trainer.train();
 
-    //    FILE * output = xfopen("output.ls.json", "w");
-    //    trainer.save_json(output);
-    //    fclose(output);
+        FILE * output = xfopen("output.ls.json", "w");
+        trainer.save_json(output);
+        fclose(output);
 
-    //    GBDTPredictor predictor;
-    //    FILE * input = xfopen("output.ls.json", "r");
-    //    predictor.load_json(input);
-    //    fclose(input);
+        GBDTPredictor predictor;
+        FILE * input = xfopen("output.ls.json", "r");
+        predictor.load_json(input);
+        fclose(input);
 
-    //    for (size_t i=0, s=set.size(); i<s; i++)
-    //    {
-    //        const XY& xy = set.get(i);
-    //        const CompoundValueVector& X = xy.X();
-    //        double y = xy.y();
-    //        printf("F(x)=%lf=%lf, y=%lf\n",
-    //            trainer.predict(X), predictor.predict(X), y);
-    //    }
-    //}
+        for (size_t i=0, s=set.size(); i<s; i++)
+        {
+            const XY& xy = set.get(i);
+            const CompoundValueVector& X = xy.X();
+            double y = xy.y();
+            printf("F(x)=%lf=%lf, y=%lf\n",
+                trainer.predict(X), predictor.predict(X), y);
+        }
+    }
 
     //param.gbdt_loss = "lad";
     //{

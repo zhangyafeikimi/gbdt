@@ -3,66 +3,7 @@
 #include <rapidjson/document.h>
 #include <rapidjson/filestream.h>
 #include <rapidjson/writer.h>
-#include <assert.h>
 #include <math.h>
-#include <stdlib.h>
-#include <algorithm>
-#include <limits>
-#include <list>
-
-static double sign(double y)
-{
-    if (y >= 0.0)
-        return 1.0;
-    else
-        return -1.0;
-}
-
-// x and its weight
-struct XW
-{
-    double x;
-    double w;
-    XW(double _x, double _w) : x(_x), w(_w) {}
-};
-
-struct XWLess
-{
-    bool operator()(const XW& a, const XW& b) const
-    {
-        return a.x < b.x;
-    }
-};
-
-// http://stackoverflow.com/questions/9794558/weighted-median-computation
-static double weighted_median(std::vector<XW> * xw)
-{
-    assert(!xw->empty());
-    std::sort(xw->begin(), xw->end(), XWLess());
-    double S = 0.0;
-    for (size_t i=0, s=xw->size(); i<s; i++)
-        S += (*xw)[i].w;
-    size_t k = 0;
-    double sum = S - (*xw)[0].w;
-
-    while(sum > S/2)
-    {
-        ++k;
-        sum -= (*xw)[k].w;
-    }
-    return (*xw)[k].x;
-}
-
-static double weighted_median_y(const XYSet& full_set)
-{
-    std::vector<XW> xw;
-    for (size_t i=0, s=full_set.size(); i<s; i++)
-    {
-        const XY& xy = full_set.get(i);
-        xw.push_back(XW(xy.y(), xy.weight()));
-    }
-    return weighted_median(&xw);
-}
 
 static double mean_y(const XYSet& full_set)
 {
@@ -78,623 +19,298 @@ static double mean_y(const XYSet& full_set)
     return total_y / total_weight;
 }
 
-static const double LOGISTIC_Y_BOUND = 1.0;
-
-#if defined USE_10000_RANDOM
-// If we want to get a deterministic sequence of random number,
-// consider turn on macro "USE_10000_RANDOM".
-class Rand01
+/************************************************************************/
+/* LSLossNode */
+/************************************************************************/
+class LSLossNode : public TreeNodeBase
 {
-private:
-    static float data_[10000];
-    const float rate_;
-    size_t i_;
-
 public:
-    explicit Rand01(double rate)
-        : rate_((float)rate), i_(0) {}
+    LSLossNode(const TreeParam& param, size_t level)
+        : TreeNodeBase(param, level) {}
 
-    bool is_one()
+    virtual TreeNodeBase * clone(
+        const TreeParam& param,
+        size_t level) const
     {
-        i_ = (i_+1) % 10000;
-        return data_[i_] < rate_;
-    }
-};
-
-float Rand01::data_[10000] = {
-#include "10000float.inl"
-};
-#else
-class Rand01
-{
-private:
-    const int threshold_1_;
-    unsigned seed_;
-
-public:
-    explicit Rand01(double rate_1)
-        : threshold_1_((int)(rate_1 * RAND_MAX)), seed_(0) {}
-
-    bool is_one()
-    {
-#if defined _WIN32
-        int i = rand();
-#else
-        int i = rand_r(&seed_);
-#endif
-        return i < threshold_1_;
-    }
-};
-#endif
-
-class TreeLossNode : public TreeNodeBase<TreeLossNode>
-{
-private:
-    TreeLossNode(const TreeParam& param, size_t level)
-        : TreeNodeBase<TreeLossNode>(param, level) {}
-
-    static TreeLossNode * create_root(const XYSet& full_set, const TreeParam& param,
-        const std::vector<double>& full_fx)
-    {
-        TreeLossNode * root = new TreeLossNode(param, 0);
-        root->left() = 0;
-        root->right() = 0;
-        root->leaf() = false;
-
-        XYSetRef& root_xy_set = root->set();
-        if (param.gbdt_sample_rate >= 1.0)
-        {
-            root->add_xy_set_fxs(full_set, full_fx);
-        }
-        else
-        {
-            // sample 'full_set' and 'full_fx' together
-            root_xy_set.spec() = &full_set.spec();
-            Rand01 r(param.gbdt_sample_rate);
-            for (size_t i=0, s=full_set.size(); i<s; i++)
-            {
-                if (r.is_one())
-                    root->add_xy_fx(full_set.get(i), full_fx[i]);
-            }
-        }
-        assert(root_xy_set.get_xtype_size() != 0);
-        assert(root_xy_set.size() != 0);
-
-        root->calculate_response();
-        return root;
+        return new LSLossNode(param, level);
     }
 
-    static void split(TreeLossNode * parent)
+    virtual void initial_fx(
+        const XYSet& full_set,
+        std::vector<double> * full_fx,
+        double * y0) const
     {
-        XYSetRef& parent_xy_set = parent->set();
-        assert(parent_xy_set.size() != 0);
-        double y_left = 0.0;
-        double y_right = 0.0;
-        parent->loss_all(&parent->split_x_index(),
-            &parent->split_x_type(),
-            &parent->split_x_value(),
-            &y_left,
-            &y_right,
-            &parent->loss());
-
-        TreeLossNode * _left = new TreeLossNode(parent->param(), parent->level() + 1);
-        _left->left() = 0;
-        _left->right() = 0;
-        _left->set().spec() = parent_xy_set.spec();
-        _left->leaf() = false;
-        _left->y() = y_left;
-
-        TreeLossNode * _right = new TreeLossNode(parent->param(), parent->level() + 1);
-        _right->left() = 0;
-        _right->right() = 0;
-        _right->set().spec() = parent_xy_set.spec();
-        _right->leaf() = false;
-        _right->y() = y_right;
-
-        parent->left() = _left;
-        parent->right() = _right;
-
-        size_t _split_x_index = parent->split_x_index();
-        if (parent->split_is_numerical())
-        {
-            double split_x_value_double = parent->split_get_double();
-            for (size_t i=0, s=parent_xy_set.size(); i<s; i++)
-            {
-                double f = parent->fx_[i];
-                const XY& xy = parent_xy_set.get(i);
-                double x = xy.x(_split_x_index).d();
-                if (x <= split_x_value_double)
-                    _left->add_xy_fx(xy, f);
-                else
-                    _right->add_xy_fx(xy, f);
-            }
-        }
-        else
-        {
-            double split_x_value_int = parent->split_get_int();
-            for (size_t i=0, s=parent_xy_set.size(); i<s; i++)
-            {
-                double f = parent->fx_[i];
-                const XY& xy = parent_xy_set.get(i);
-                int x = xy.x(_split_x_index).i();
-                if (x == split_x_value_int)
-                    _left->add_xy_fx(xy, f);
-                else
-                    _right->add_xy_fx(xy, f);
-            }
-        }
-        _left->calculate_response();
-        _right->calculate_response();
-        assert(parent->set().size() ==
-            _left->set().size() + _right->set().size());
+        *y0 = mean_y(full_set);
+        full_fx->assign(full_set.size(), *y0);
     }
 
-    static void train(TreeLossNode * root)
+    virtual double total_loss(
+        const XYSet& full_set,
+        const std::vector<double>& full_fx) const
     {
-        const TreeParam& param = root->param();
-        std::list<TreeLossNode *> stack;
-        stack.push_back(root);
-        size_t leaf_size = 0;
-
-        while (!stack.empty())
-        {
-            TreeLossNode * node = stack.back();
-            stack.pop_back();
-
-            size_t level = node->level();
-            if (level >= param.max_level
-                || leaf_size >= param.max_leaf_number
-                || node->set().size() <= param.min_values_in_leaf)
-            {
-                node->leaf() = true;
-                leaf_size++;
-                continue;
-            }
-
-            split(node);
-            stack.push_back(node->left());
-            stack.push_back(node->right());
-        }
-
-        root->shrink();
-    }
-
-    static void __shrink(TreeLossNode * node, double rate)
-    {
-        if (node->is_leaf())
-            node->y() *= rate;
-        else
-        {
-            TreeLossNode * left = node->left();
-            assert(left);
-            __shrink(left, rate);
-            TreeLossNode * right = node->right();
-            assert(right);
-            __shrink(right, rate);
-        }
-    }
-
-    void shrink()
-    {
-        if (param().gbdt_learning_rate >= 1.0)
-            return;
-        __shrink(this, param().gbdt_learning_rate);
-    }
-
-    void calculate_response()
-    {
-        assert(response_.empty());
-        assert(fx_.size() == set().size());
-
-        if (param().gbdt_loss == "lad")
-        {
-            for (size_t i=0, s=fx_.size(); i<s; i++)
-                response_.push_back(sign((set().get(i).y() - fx_[i])));
-        }
-        else if (param().gbdt_loss == "logistic")
-        {
-            for (size_t i=0, s=fx_.size(); i<s; i++)
-            {
-                double y = set().get(i).y();
-                double response = 2.0 * y / (1.0 + exp(2 * y * fx_[i]));
-                response_.push_back(response);
-            }
-        }
-        else
-        {
-            for (size_t i=0, s=fx_.size(); i<s; i++)
-                response_.push_back((set().get(i).y() - fx_[i]));
-        }
-    }
-
-    void update_fx(const XYSet& full_set, std::vector<double> * full_fx) const
-    {
+        assert(full_set.size() == full_fx.size());
+        double loss = 0.0;
         for (size_t i=0, s=full_set.size(); i<s; i++)
         {
             const XY& xy = full_set.get(i);
-            (*full_fx)[i] += predict(xy.X());
+            double residual = full_set.get(i).y() - full_fx[i];
+            loss += (residual * residual * xy.weight());
         }
+        return loss;
+    }
+
+protected:
+    virtual void update_response()
+    {
+        assert(response_.empty());
+        for (size_t i=0, s=fx_.size(); i<s; i++)
+            response_.push_back((set().get(i).y() - fx_[i]));
+    }
+
+    virtual void update_predicted_y_for_children(
+        size_t _split_x_index,
+        kXType _split_x_type,
+        const CompoundValue& _split_x_value,
+        double * _y_left,
+        double * _y_right) const {}
+};
+
+/************************************************************************/
+/* LADLossNode */
+/************************************************************************/
+class LADLossNode : public TreeNodeBase
+{
+private:
+    static double sign(double y)
+    {
+        if (y >= 0.0)
+            return 1.0;
+        else
+            return -1.0;
+    }
+
+    // x and its weight
+    struct XW
+    {
+        double x;
+        double w;
+        XW(double _x, double _w) : x(_x), w(_w) {}
+    };
+
+    struct XWLess
+    {
+        bool operator()(const XW& a, const XW& b) const
+        {
+            return a.x < b.x;
+        }
+    };
+
+    // http://stackoverflow.com/questions/9794558/weighted-median-computation
+    static double weighted_median(std::vector<XW> * xw)
+    {
+        assert(!xw->empty());
+        std::sort(xw->begin(), xw->end(), XWLess());
+        double S = 0.0;
+        for (size_t i=0, s=xw->size(); i<s; i++)
+            S += (*xw)[i].w;
+        size_t k = 0;
+        double sum = S - (*xw)[0].w;
+
+        while(sum > S/2)
+        {
+            ++k;
+            sum -= (*xw)[k].w;
+        }
+        return (*xw)[k].x;
+    }
+
+    static double weighted_median_y(const XYSet& full_set)
+    {
+        std::vector<XW> xw;
+        for (size_t i=0, s=full_set.size(); i<s; i++)
+        {
+            const XY& xy = full_set.get(i);
+            xw.push_back(XW(xy.y(), xy.weight()));
+        }
+        return weighted_median(&xw);
     }
 
 public:
-    static void initial_fx(const TreeParam& param, const XYSet& full_set,
-        std::vector<double> * full_fx, double * y0)
-    {
-        assert(full_fx->empty());
+    LADLossNode(const TreeParam& param, size_t level)
+        : TreeNodeBase(param, level) {}
 
-        if (param.gbdt_loss == "lad")
-        {
-            *y0 = weighted_median_y(full_set);
-            full_fx->assign(full_set.size(), *y0);
-        }
-        else if (param.gbdt_loss == "logistic")
-        {
-            double _mean_y = mean_y(full_set);
-            *y0 = 0.5 * log((1+_mean_y) / (1-_mean_y));
-            full_fx->assign(full_set.size(), *y0);
-        }
-        else
-        {
-            *y0 = mean_y(full_set);
-            full_fx->assign(full_set.size(), *y0);
-        }
+    virtual TreeNodeBase * clone(
+        const TreeParam& param,
+        size_t level) const
+    {
+        return new LADLossNode(param, level);
     }
 
-    static TreeLossNode * train(const XYSet& full_set, const TreeParam& param,
-        std::vector<double> * full_fx)
+    virtual void initial_fx(const XYSet& full_set,
+        std::vector<double> * full_fx, double * y0) const
     {
-        assert(full_set.size() == full_fx->size());
-        TreeLossNode * root = create_root(full_set, param, *full_fx);
-        train(root);
-        root->update_fx(full_set, full_fx);
-        root->drain();
-        return root;
+        *y0 = weighted_median_y(full_set);
+        full_fx->assign(full_set.size(), *y0);
     }
 
-    // only for GBDTPredictor
-    static TreeLossNode * create_for_predictor(const TreeParam& param)
+    virtual double total_loss(
+        const XYSet& full_set,
+        const std::vector<double>& full_fx) const
     {
-        TreeLossNode * node = new TreeLossNode(param, 0);
-        node->left() = 0;
-        node->right() = 0;
-        return node;
-    }
-
-private:
-    void loss_all(
-        size_t * _split_x_index,
-        kXType * _split_x_type,
-        CompoundValue * _split_x_value,
-        double * _y_left,
-        double * _y_right,
-        double * min_loss) const
-    {
-        *min_loss = std::numeric_limits<double>::max();
-        for (size_t x_index=0, s=set().get_xtype_size(); x_index<s; x_index++)
+        assert(full_set.size() == full_fx.size());
+        double loss = 0.0;
+        for (size_t i=0, s=full_set.size(); i<s; i++)
         {
-            kXType x_type = set().get_xtype(x_index);
-            CompoundValue x_value;
-            double y_left = 0.0;
-            double y_right = 0.0;
-            double loss;
-            loss_X(x_index, x_type, &x_value, &y_left, &y_right, &loss);
-            if (loss < *min_loss)
-            {
-                *_split_x_index = x_index;
-                *_split_x_type = x_type;
-                *_split_x_value = x_value;
-                *_y_left = y_left;
-                *_y_right = y_right;
-                *min_loss = loss;
-            }
+            const XY& xy = full_set.get(i);
+            double residual = full_set.get(i).y() - full_fx[i];
+            loss += abs(residual) * xy.weight();
         }
+        return loss;
     }
 
-    void loss_X(
+protected:
+    virtual void update_response()
+    {
+        assert(response_.empty());
+        for (size_t i=0, s=fx_.size(); i<s; i++)
+            response_.push_back(sign((set().get(i).y() - fx_[i])));
+    }
+
+    virtual void update_predicted_y_for_children(
         size_t _split_x_index,
         kXType _split_x_type,
-        CompoundValue * _split_x_value,
+        const CompoundValue& _split_x_value,
         double * _y_left,
-        double * _y_right,
-        double * min_loss) const
+        double * _y_right) const
     {
-        CompoundValueVector x_values;
-        get_unique_x_values(_split_x_index, param().max_x_values_number, &x_values);
-        *min_loss = std::numeric_limits<double>::max();
-        for (size_t i=0, s=x_values.size(); i<s; i++)
-        {
-            CompoundValue x_value = x_values[i];
-            double y_left;
-            double y_right;
-            double loss;
-            loss_x(_split_x_index, _split_x_type, x_value, &y_left, &y_right, &loss);
-            if (loss < *min_loss)
-            {
-                *_split_x_value = x_value;
-                *_y_left = y_left;
-                *_y_right = y_right;
-                *min_loss = loss;
-            }
-        }
-    }
-
-    void loss_x(
-        size_t _split_x_index,
-        kXType _split_x_type,
-        CompoundValue _split_x_value,
-        double * _y_left,
-        double * _y_right,
-        double * loss) const
-    {
-        if (_split_x_type == kXType_Numerical)
-            loss_x_numerical(_split_x_index, _split_x_value.d(), _y_left, _y_right, loss);
-        else
-            loss_x_category(_split_x_index, _split_x_value.i(), _y_left, _y_right, loss);
-    }
-
-    void loss_x_numerical(
-        size_t _split_x_index,
-        double _split_x_value,
-        double * _y_left,
-        double * _y_right,
-        double * loss) const
-    {
-        double n_left = 0.0;
-        double n_right = 0.0;
         double y_left = 0.0;
         double y_right = 0.0;
 
+        std::vector<XW> response_left;
+        std::vector<XW> response_right;
+
         for (size_t i=0, s=set().size(); i<s; i++)
         {
             const XY& xy = set().get(i);
-            double x = xy.x(_split_x_index).d();
+            const CompoundValue& x = xy.x(_split_x_index);
             double weight = xy.weight();
             double response = response_[i];
-            if (x <= _split_x_value)
-            {
-                y_left += response * weight;
-                n_left += weight;
-            }
+            if (X_LIES_LEFT(x, _split_x_value, _split_x_type))
+                response_left.push_back(XW(response, weight));
             else
-            {
-                y_right += response * weight;
-                n_right += weight;
-            }
+                response_right.push_back(XW(response, weight));
         }
 
-        if (n_left > EPS)
-            y_left /= n_left;
-        if (n_right > EPS)
-            y_right /= n_right;
+        if (!response_left.empty())
+            y_left = weighted_median(&response_left);
+        if (!response_right.empty())
+            y_right = weighted_median(&response_right);
 
+        // readjust leaf values by the weighted median values
         *_y_left = y_left;
         *_y_right = y_right;
-        __loss_x_numerical(_split_x_index, _split_x_value, y_left, y_right, loss);
-
-        if (param().gbdt_loss == "lad")
-        {
-            y_left = 0.0;
-            y_right = 0.0;
-
-            std::vector<XW> response_left;
-            std::vector<XW> response_right;
-
-            for (size_t i=0, s=set().size(); i<s; i++)
-            {
-                const XY& xy = set().get(i);
-                double x = xy.x(_split_x_index).d();
-                double weight = xy.weight();
-                double response = response_[i];
-                if (x <= _split_x_value)
-                    response_left.push_back(XW(response, weight));
-                else
-                    response_right.push_back(XW(response, weight));
-            }
-
-            if (!response_left.empty())
-                y_left = weighted_median(&response_left);
-            if (!response_right.empty())
-                y_right = weighted_median(&response_right);
-
-            // readjust leaf values by the weighted median values
-            *_y_left = y_left;
-            *_y_right = y_right;
-        }
-        else if (param().gbdt_loss == "logistic")
-        {
-            y_left = 0.0;
-            y_right = 0.0;
-
-            double left_numerator = 0.0, left_denominator = 0.0;
-            double right_numerator = 0.0, right_denominator = 0.0;
-
-            for (size_t i=0, s=set().size(); i<s; i++)
-            {
-                const XY& xy = set().get(i);
-                double x = xy.x(_split_x_index).d();
-                double weight = xy.weight();
-                double response = response_[i];
-                double abs_response = abs(response);
-                if (x <= _split_x_value)
-                {
-                    left_numerator += response * weight;
-                    right_denominator += abs_response * (2 - abs_response) * weight;
-                }
-                else
-                {
-                    right_numerator += response * weight;
-                    left_denominator += abs_response * (2 - abs_response) * weight;
-                }
-            }
-
-            y_left = left_numerator / left_denominator;
-            y_right = right_numerator / right_denominator;
-            // bound y
-            y_left = std::min(std::max(-LOGISTIC_Y_BOUND, y_left), LOGISTIC_Y_BOUND);
-            y_right = std::min(std::max(-LOGISTIC_Y_BOUND, y_right), LOGISTIC_Y_BOUND);
-
-            // readjust
-            *_y_left = y_left;
-            *_y_right = y_right;
-        }
-    }
-
-    void loss_x_category(
-        size_t _split_x_index,
-        int _split_x_value,
-        double * _y_left,
-        double * _y_right,
-        double * loss) const
-    {
-        double n_left = 0.0;
-        double n_right = 0.0;
-        double y_left = 0.0;
-        double y_right = 0.0;
-
-        for (size_t i=0, s=set().size(); i<s; i++)
-        {
-            const XY& xy = set().get(i);
-            int x = xy.x(_split_x_index).i();
-            double weight = xy.weight();
-            double response = response_[i];
-            if (x == _split_x_value)
-            {
-                y_left += response * weight;
-                n_left += weight;
-            }
-            else
-            {
-                y_right += response * weight;
-                n_right += weight;
-            }
-        }
-
-        if (n_left > EPS)
-            y_left /= n_left;
-        if (n_right > EPS)
-            y_right /= n_right;
-
-        *_y_left = y_left;
-        *_y_right = y_right;
-        __loss_x_category(_split_x_index, _split_x_value, y_left, y_right, loss);
-
-        if (param().gbdt_loss == "lad")
-        {
-            y_left = 0.0;
-            y_right = 0.0;
-
-            std::vector<XW> response_left;
-            std::vector<XW> response_right;
-
-            for (size_t i=0, s=set().size(); i<s; i++)
-            {
-                const XY& xy = set().get(i);
-                int x = xy.x(_split_x_index).i();
-                double weight = xy.weight();
-                double response = response_[i];
-                if (x == _split_x_value)
-                    response_left.push_back(XW(response, weight));
-                else
-                    response_right.push_back(XW(response, weight));
-            }
-
-            if (!response_left.empty())
-                y_left = weighted_median(&response_left);
-            if (!response_right.empty())
-                y_right = weighted_median(&response_right);
-
-            // readjust leaf values by the weighted median values
-            *_y_left = y_left;
-            *_y_right = y_right;
-        }
-        else if (param().gbdt_loss == "logistic")
-        {
-            y_left = 0.0;
-            y_right = 0.0;
-
-            double left_numerator = 0.0, left_denominator = 0.0;
-            double right_numerator = 0.0, right_denominator = 0.0;
-
-            for (size_t i=0, s=set().size(); i<s; i++)
-            {
-                const XY& xy = set().get(i);
-                int x = xy.x(_split_x_index).i();
-                double weight = xy.weight();
-                double response = response_[i];
-                double abs_response = abs(response);
-                if (x == _split_x_value)
-                {
-                    left_numerator += response * weight;
-                    right_denominator += abs_response * (2 - abs_response) * weight;
-                }
-                else
-                {
-                    right_numerator += response * weight;
-                    left_denominator += abs_response * (2 - abs_response) * weight;
-                }
-            }
-
-            y_left = left_numerator / left_denominator;
-            y_right = right_numerator / right_denominator;
-            // bound y
-            y_left = std::min(std::max(-LOGISTIC_Y_BOUND, y_left), LOGISTIC_Y_BOUND);
-            y_right = std::min(std::max(-LOGISTIC_Y_BOUND, y_right), LOGISTIC_Y_BOUND);
-
-            // readjust
-            *_y_left = y_left;
-            *_y_right = y_right;
-        }
-    }
-
-    void __loss_x_numerical(
-        size_t _split_x_index,
-        double _split_x_value,
-        double _y_left,
-        double _y_right,
-        double * loss) const
-    {
-        *loss = 0.0;
-        for (size_t i=0, s=set().size(); i<s; i++)
-        {
-            const XY& xy = set().get(i);
-            double x = xy.x(_split_x_index).d();
-            double weight = xy.weight();
-            double diff;
-            if (x <= _split_x_value)
-                diff = response_[i] - _y_left;
-            else
-                diff = response_[i] - _y_right;
-            // weighted square loss
-            *loss += (diff * diff * weight);
-        }
-    }
-
-    void __loss_x_category(
-        size_t _split_x_index,
-        int _split_x_value,
-        double _y_left,
-        double _y_right,
-        double * loss) const
-    {
-        *loss = 0.0;
-        for (size_t i=0, s=set().size(); i<s; i++)
-        {
-            const XY& xy = set().get(i);
-            int x = xy.x(_split_x_index).i();
-            double weight = xy.weight();
-            double diff;
-            if (x == _split_x_value)
-                diff = response_[i] - _y_left;
-            else
-                diff = response_[i] - _y_right;
-            // weighted square loss
-            *loss += (diff * diff * weight);
-        }
     }
 };
 
-const TreeParam GBDTPredictor::empty_param_;
+/************************************************************************/
+/* LogisticLossNode */
+/************************************************************************/
+static const double LOGISTIC_Y_BOUND = 10.0;
 
+class LogisticLossNode : public TreeNodeBase
+{
+public:
+    LogisticLossNode(const TreeParam& param, size_t level)
+        : TreeNodeBase(param, level) {}
+
+    virtual TreeNodeBase * clone(
+        const TreeParam& param,
+        size_t level) const
+    {
+        return new LogisticLossNode(param, level);
+    }
+
+    virtual void initial_fx(const XYSet& full_set,
+        std::vector<double> * full_fx, double * y0) const
+    {
+        double _mean_y = mean_y(full_set);
+        *y0 = 0.5 * log((1+_mean_y) / (1-_mean_y));
+        full_fx->assign(full_set.size(), *y0);
+    }
+
+    virtual double total_loss(
+        const XYSet& full_set,
+        const std::vector<double>& full_fx) const
+    {
+        assert(full_set.size() == full_fx.size());
+        double loss = 0.0;
+        for (size_t i=0, s=full_set.size(); i<s; i++)
+        {
+            const XY& xy = full_set.get(i);
+            loss += log(1 + exp(-2.0 * xy.y() * full_fx[i])) * xy.weight();
+        }
+        return loss;
+    }
+
+protected:
+    virtual void update_response()
+    {
+        assert(response_.empty());
+        for (size_t i=0, s=fx_.size(); i<s; i++)
+        {
+            double y = set().get(i).y();
+            double response = 2.0 * y / (1.0 + exp(2 * y * fx_[i]));
+            response_.push_back(response);
+        }
+    }
+
+    virtual void update_predicted_y_for_children(
+        size_t _split_x_index,
+        kXType _split_x_type,
+        const CompoundValue& _split_x_value,
+        double * _y_left,
+        double * _y_right) const
+    {
+        double y_left = 0.0;
+        double y_right = 0.0;
+
+        double left_numerator = 0.0, left_denominator = 0.0;
+        double right_numerator = 0.0, right_denominator = 0.0;
+
+        for (size_t i=0, s=set().size(); i<s; i++)
+        {
+            const XY& xy = set().get(i);
+            const CompoundValue& x = xy.x(_split_x_index);
+            double weight = xy.weight();
+            double response = response_[i];
+            double abs_response = abs(response);
+            if (X_LIES_LEFT(x, _split_x_value, _split_x_type))
+            {
+                left_numerator += response * weight;
+                right_denominator += abs_response * (2 - abs_response) * weight;
+            }
+            else
+            {
+                right_numerator += response * weight;
+                left_denominator += abs_response * (2 - abs_response) * weight;
+            }
+        }
+
+        y_left = left_numerator / left_denominator;
+        y_right = right_numerator / right_denominator;
+        // bound y
+        y_left = std::min(std::max(-LOGISTIC_Y_BOUND, y_left), LOGISTIC_Y_BOUND);
+        y_right = std::min(std::max(-LOGISTIC_Y_BOUND, y_right), LOGISTIC_Y_BOUND);
+
+        // readjust
+        *_y_left = y_left;
+        *_y_right = y_right;
+    }
+};
+
+/************************************************************************/
+/* GBDTPredictor and GBDTTrainer */
+/************************************************************************/
 GBDTPredictor::GBDTPredictor() {}
 
 GBDTPredictor::~GBDTPredictor() {clear();}
@@ -720,60 +336,30 @@ void GBDTPredictor::clear()
 }
 
 GBDTTrainer::GBDTTrainer(const XYSet& set, const TreeParam& param)
-    : full_set_(set), param_(param), full_fx_() {}
+    : full_set_(set), param_(param), full_fx_()
+{
+    if (param_.gbdt_loss == "lad")
+    {
+        holder_ = new LADLossNode(param, 0);
+    }
+    else if (param_.gbdt_loss == "logistic")
+    {
+        holder_ = new LogisticLossNode(param, 0);
+    }
+    else
+    {
+        holder_ = new LSLossNode(param, 0);
+    }
+}
 
 GBDTTrainer::~GBDTTrainer() {}
 
-double GBDTTrainer::ls_loss() const
-{
-    assert(full_set_.size() == full_fx_.size());
-    double loss = 0.0;
-    for (size_t i=0, s=full_set_.size(); i<s; i++)
-    {
-        const XY& xy = full_set_.get(i);
-        double residual = full_set_.get(i).y() - full_fx_[i];
-        loss += (residual * residual * xy.weight());
-    }
-    return loss;
-}
-
-double GBDTTrainer::lad_loss() const
-{
-    assert(full_set_.size() == full_fx_.size());
-    double loss = 0.0;
-    for (size_t i=0, s=full_set_.size(); i<s; i++)
-    {
-        const XY& xy = full_set_.get(i);
-        double residual = full_set_.get(i).y() - full_fx_[i];
-        loss += abs(residual) * xy.weight();
-    }
-    return loss;
-}
-
-double GBDTTrainer::logistic_loss() const
-{
-    assert(full_set_.size() == full_fx_.size());
-    double loss = 0.0;
-    for (size_t i=0, s=full_set_.size(); i<s; i++)
-    {
-        const XY& xy = full_set_.get(i);
-        loss += log(1 + exp(-2.0 * xy.y() * full_fx_[i]))
-            * xy.weight();
-    }
-    return loss;
-}
-
 double GBDTTrainer::total_loss() const
 {
-    if (param_.gbdt_loss == "lad")
-        return lad_loss();
-    else if (param_.gbdt_loss == "logistic")
-        return logistic_loss();
-    else
-        return ls_loss();
+    return holder_->total_loss(full_set_, full_fx_);
 }
 
-static void record_loss_drop(const TreeLossNode * node,
+static void record_loss_drop(const TreeNodeBase * node,
                              double current_loss,
                              std::vector<double> * loss_drop_vector)
 {
@@ -810,14 +396,14 @@ void GBDTTrainer::train()
 {
     assert(trees_.empty());
 
-    TreeLossNode::initial_fx(param_, full_set_, &full_fx_, &y0_);
+    holder_->initial_fx(full_set_, &full_fx_, &y0_);
     if (param_.verbose)
         printf("total_loss=%lf\n", total_loss());
 
     for (size_t i=0; i<param_.gbdt_tree_number; i++)
     {
         printf("training tree No.%d... ", (int)i);
-        TreeLossNode * tree = TreeLossNode::train(full_set_, param_, &full_fx_);
+        TreeNodeBase * tree = holder_->train(full_set_, param_, &full_fx_);
         trees_.push_back(tree);
         if (param_.verbose)
         {
@@ -845,7 +431,7 @@ void GBDTTrainer::train()
 
 using namespace rapidjson;
 
-static int load_tree(const TreeParam& param, const Value& tree, TreeLossNode * node)
+static int load_tree(const Value& tree, TreeNodeBase * node)
 {
     if (tree.HasMember("value"))
     {
@@ -881,8 +467,8 @@ static int load_tree(const TreeParam& param, const Value& tree, TreeLossNode * n
         }
 
         const Value& left = tree["left"];
-        TreeLossNode * left_node = TreeLossNode::create_for_predictor(param);
-        if (load_tree(param, left, left_node) == -1)
+        TreeNodeBase * left_node = TreeNodePredictor::create();
+        if (load_tree(left, left_node) == -1)
         {
             delete left_node;
             return -1;
@@ -893,8 +479,8 @@ static int load_tree(const TreeParam& param, const Value& tree, TreeLossNode * n
         }
 
         const Value& right = tree["right"];
-        TreeLossNode * right_node = TreeLossNode::create_for_predictor(param);
-        if (load_tree(param, right, right_node) == -1)
+        TreeNodeBase * right_node = TreeNodePredictor::create();
+        if (load_tree(right, right_node) == -1)
         {
             delete right_node;
             return -1;
@@ -929,8 +515,8 @@ int GBDTPredictor::load_json(FILE * fp)
     for (SizeType i=0, s=trees.Size(); i<s; i++)
     {
         const Value& tree = trees[i];
-        TreeLossNode * node = TreeLossNode::create_for_predictor(empty_param_);
-        if (load_tree(empty_param_, tree, node) == -1)
+        TreeNodeBase * node = TreeNodePredictor::create();
+        if (load_tree(tree, node) == -1)
         {
             delete node;
             clear();
@@ -954,7 +540,7 @@ static void save_spec(const XYSpec& spec, Value * spec_value,
     }
 }
 
-static void save_tree(const TreeLossNode& tree, Value * tree_value,
+static void save_tree(const TreeNodeBase& tree, Value * tree_value,
                       Document::AllocatorType& allocator)
 {
     tree_value->SetObject();

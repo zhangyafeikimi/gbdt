@@ -6,15 +6,13 @@
 #include <stdio.h>
 #include <vector>
 
-class TreeLossNode;
+class TreeNodeBase;
 
 class GBDTPredictor
 {
-private:
-    static const TreeParam empty_param_;
 protected:
     double y0_;
-    std::vector<TreeLossNode *> trees_;
+    std::vector<TreeNodeBase *> trees_;
 public:
     GBDTPredictor();
     virtual ~GBDTPredictor();
@@ -30,9 +28,7 @@ private:
     const XYSet& full_set_;
     const TreeParam& param_;
     std::vector<double> full_fx_;
-    double ls_loss() const;
-    double lad_loss() const;
-    double logistic_loss() const;
+    const TreeNodeBase * holder_;
     double total_loss() const;
     void dump_feature_importance() const;
 public:
