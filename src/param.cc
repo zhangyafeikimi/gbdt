@@ -19,7 +19,6 @@ static void print_usage(const char * program, FILE * fp)
         "        max_level = 5\n"
         "        max_leaf_number = 20\n"
         "        max_x_values_number = 200\n"
-        "        leaf_threshold = 0.75\n"
         "        min_values_in_leaf = 10\n"
         "        gbdt_tree_number = 400\n"
         "        gbdt_learning_rate = 0.1\n"
@@ -31,57 +30,103 @@ static void print_usage(const char * program, FILE * fp)
         "        -------------------------\n");
 }
 
+struct TreeParamSpec
+{
+    const char * type_name;
+    const char * name;
+    void * v;
+    void (* assign)(const std::string& s, void * v);
+    void (* check)(void * v);
+};
+
+#define DECLARE_PARAM(type_name, name) \
+{#type_name, #name, (void *)&param->name, assign_##type_name, 0}
+#define DECLARE_PARAM_CHECKER(type_name, name) \
+{#type_name, #name, (void *)&param->name, assign_##type_name, check_##name}
+
+static void assign_int(const std::string& s, void * v)
+{
+    *(int *)v = xatoi(s.c_str());
+}
+
+static void assign_size_t(const std::string& s, void * v)
+{
+    *(size_t *)v = (size_t)xatoi(s.c_str());
+}
+
+static void assign_double(const std::string& s, void * v)
+{
+    *(double *)v = xatof(s.c_str());
+}
+
+static void assign_std_string(const std::string& s, void * v)
+{
+    *(std::string *)v = s;
+}
+
+static void check_min_values_in_leaf(void * v)
+{
+    if (*(size_t *)v < 1)
+    {
+        fprintf(stderr, "invalid \"min_values_in_leaf\", it should be >= 1\n");
+        exit(1);
+    }
+}
+
+static void check_gbdt_loss(void * v)
+{
+    std::string loss = *(std::string *)v;
+    if (loss != "ls" && loss != "lad" && loss != "logistic")
+    {
+        fprintf(stderr, "invalid \"gbdt_loss\", it should be \"ls\", \"lad\" or \"logistic\"\n");
+        exit(1);
+    }
+}
+
+static void check_training_sample_format(void * v)
+{
+    std::string format = *(std::string *)v;
+    if (format != "liblinear" && format != "gbdt")
+    {
+        fprintf(stderr, "invalid \"training_sample_format\", it should be \"liblinear\" or \"gbdt\"\n");
+        exit(1);
+    }
+}
+
 class TreeParamLoader
 {
 private:
     int add_key_value(TreeParam * param, const std::string& key, const std::string& value)
     {
-        if (key == "verbose")
-            param->verbose = xatoi(value.c_str());
-        else if (key == "max_level")
-            param->max_level = (size_t)xatoi(value.c_str());
-        else if (key == "max_leaf_number")
-            param->max_leaf_number = (size_t)xatoi(value.c_str());
-        else if (key == "max_x_values_number")
-            param->max_x_values_number = (size_t)xatoi(value.c_str());
-        else if (key == "min_values_in_leaf")
+        TreeParamSpec specs[] = 
         {
-            param->min_values_in_leaf = (size_t)xatoi(value.c_str());
-            if (param->min_values_in_leaf < 1)
+            DECLARE_PARAM(int, verbose),
+            DECLARE_PARAM(size_t, max_level),
+            DECLARE_PARAM(size_t, max_leaf_number),
+            DECLARE_PARAM(size_t, max_x_values_number),
+            DECLARE_PARAM_CHECKER(size_t, min_values_in_leaf),
+            DECLARE_PARAM(size_t, gbdt_tree_number),
+            DECLARE_PARAM(double, gbdt_learning_rate),
+            DECLARE_PARAM(double, gbdt_sample_rate),
+            DECLARE_PARAM_CHECKER(std_string, gbdt_loss),
+            DECLARE_PARAM(std_string, training_sample),
+            DECLARE_PARAM_CHECKER(std_string, training_sample_format),
+            DECLARE_PARAM(std_string, model),
+        };
+
+        for (size_t i=0; i<sizeof(specs)/sizeof(specs[0]); i++)
+        {
+            const TreeParamSpec& spec = specs[i];
+            if (key == spec.name)
             {
-                fprintf(stderr, "invalid \"min_values_in_leaf\", it should be >= 1\n");
-                return -1;
+                spec.assign(value, spec.v);
+                if (spec.check)
+                    spec.check(spec.v);
+                return 0;
             }
         }
-        else if (key == "gbdt_tree_number")
-            param->gbdt_tree_number = (size_t)xatoi(value.c_str());
-        else if (key == "gbdt_learning_rate")
-            param->gbdt_learning_rate = xatof(value.c_str());
-        else if (key == "gbdt_sample_rate")
-            param->gbdt_sample_rate = xatof(value.c_str());
-        else if (key == "gbdt_loss")
-        {
-            if (value != "ls" && value != "lad" && value != "logistic")
-            {
-                fprintf(stderr, "invalid \"gbdt_loss\", it should be \"ls\", \"lad\" or \"logistic\"\n");
-                return -1;
-            }
-            param->gbdt_loss = value;
-        }
-        else if (key == "training_sample")
-            param->training_sample = value;
-        else if (key == "training_sample_format")
-        {
-            if (value != "liblinear" && value != "gbdt")
-            {
-                fprintf(stderr, "invalid \"training_sample_format\", it should be \"liblinear\" or \"gbdt\"\n");
-                return -1;
-            }
-            param->training_sample_format = value;
-        }
-        else if (key == "model")
-            param->model = value;
-        return 0;
+
+        return -1;
     }
 
     void trim_assign(const char * src, std::string * dest)

@@ -435,7 +435,7 @@ private:
         double _y_right,
         double * _loss) const
     {
-        double loss = 0.0;
+        double ls_loss = 0.0;
         for (size_t i=0, s=set().size(); i<s; i++)
         {
             const XY& xy = set().get(i);
@@ -447,9 +447,9 @@ private:
             else
                 diff = response_[i] - _y_right;
             // weighted square loss
-            loss += (diff * diff * weight);
+            ls_loss += (diff * diff * weight);
         }
-        *_loss = loss;
+        *_loss = ls_loss;
     }
 
     static double __predict(const TreeNodeBase * node, const CompoundValueVector& X)
@@ -497,10 +497,7 @@ private:
 public:
     static TreeNodePredictor * create()
     {
-        TreeNodePredictor * node = new TreeNodePredictor(0);
-        node->left() = 0;
-        node->right() = 0;
-        return node;
+        return new TreeNodePredictor(0);
     }
 
     virtual TreeNodeBase * clone(
