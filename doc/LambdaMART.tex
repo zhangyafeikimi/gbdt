@@ -1,0 +1,296 @@
+\documentclass [11pt,a4paper]{article}
+\usepackage[lined,boxed,commentsnumbered]{algorithm2e}
+\usepackage{amsmath,amssymb}
+\usepackage{array}
+\usepackage{bm}
+\usepackage{hyperref}
+\usepackage{txfonts}
+\setlength{\parskip}{1.0\baselineskip}
+\setlength{\parindent}{0pt}
+\SetAlFnt{\footnotesize}
+
+\begin{document}
+
+\title{LambdaMART notes}
+\author{Yafei Zhang}
+\maketitle
+\tableofcontents
+\newpage
+
+
+\section{Notations}
+$x, x_i, x_j$: input feature vector, $x \in \Re^{n}$.
+
+$y, y_i, y_j$: input score, measurement of goodness.
+
+$U, U_i, U_j$: URLs.
+
+$s\equiv F(x)$, $s_i\equiv F(x_i)$, $s_j\equiv F(x_j)$: model learned score, measurement of goodness.
+$F$ is the learned model.
+
+$o_{ij} \equiv s_i - s_j$ (for a given query).
+
+$\rho_{ij} \equiv \frac{1}{1+e^{o_{ij}}}$ (for a given query).
+
+$P_{ij}$:
+a learned probability that $U_i$ should be ranked higher than $U_j$ (for a given query).
+
+$\overline{P}_{ij}$:
+the known probability that $U_i$ should be ranked higher than $U_j$ (for a given query).
+
+$S_{ij}$: it is defined as (for a given query)
+\begin{equation}
+S_{ij} \equiv \left\{
+  \begin{array}{ccc}
+    0  & \mbox{for} & y_i=y_j\\
+    1  & \mbox{for} & y_i>y_j\\
+    -1 & \mbox{for} & y_i<y_j\\
+  \end{array}
+\right.
+\end{equation}
+
+$C$: target function we want to maximize.
+
+$C_{ij}$: the amount that $U_i$ and $U_j$ contribute to $C$ (for a given query).
+
+$\lambda_{ij}$: lambda gradient of $U_i$ and $U_j$ (for a given query).
+
+$\lambda_i$: sums of lambda gradient of $U_i$ and all other URLs.
+
+$I \equiv \{(i,j) | S_{ij} = 1\}$: the set of pairs of indices $(i,j)$,
+for which we desire $U_i$ to be ranked higher than $U_j$ (for a given query).
+
+$Z$: a measure of L2R such as NDCG, MAP, MRR. It is NDCG in LambdaMART.
+
+$\Delta Z_{ij}$ is the change of $Z$ by swapping the rank positions of $U_i$ and $U_j$
+(for a given query)
+(after sorting all documents by their current scores $s$).
+
+
+\section{Definitions}
+\begin{equation}
+P_{ij} \equiv P(U_i \rhd U_j) \equiv \frac{1}{1 + e^{-(s_i - s_j)}}
+= \frac{1}{1 + e^{-o_{ij}}}
+\end{equation}
+
+
+\begin{equation}
+\overline{P}_{ij} \equiv \frac{(1 + S_{ij})}{2}
+\end{equation}
+
+
+$C_{ij}$ is chosen to be:
+\begin{eqnarray}
+C_{ij} \equiv |\Delta Z_{ij}| \left[
+  -\overline{P}_{ij}\log(P_{ij}) - (1-\overline{P}_{ij})\log(1-P_{ij})
+\right] \\
+= |\Delta Z_{ij}| \left[
+  \frac{1}{2}(1-S_{ij})o_{ij} + \log(1+e^{-o_{ij}})
+\right] \\
+= \left\{
+  \begin{array}{rcl}
+    |\Delta Z_{ij}| \log(1+e^{-o_{ij}}) & \mbox{for} & S_{ij}=1\\
+    |\Delta Z_{ij}| \log(1+e^{-o_{ji}}) & \mbox{for} & S_{ij}=-1\\
+  \end{array}
+\right.
+\end{eqnarray}
+
+
+From now on, we assume all $(i,j) \in I$ except extra explanations.
+\begin{equation}
+C_{ij} \equiv |\Delta Z_{ij}| \log(1+e^{-o_{ij}})
+\end{equation}
+
+
+Gradient(treat $\Delta Z_{ij}$ a constant):
+\begin{equation}
+\frac{\partial C_{ij}}{\partial s_i}
+= \frac{\partial C_{ij}}{\partial o_{ij}}
+= - \frac{|\Delta Z_{ij}|}{1+e^{o_{ij}}}
+= - |\Delta Z_{ij}| \rho_{ij}
+= -\frac{\partial C_{ij}}{\partial o_{ji}}
+= - \frac{\partial C_{ij}}{\partial s_j}
+\end{equation}
+
+
+$\lambda$-gradient:
+\begin{equation}
+\lambda_{ij}
+\equiv \left| \frac{\partial C_{ij}}{\partial o_{ij}} \right|
+= \frac{|\Delta Z_{ij}|}{1+e^{o_{ij}}}
+= |\Delta Z_{ij}| \rho_{ij}
+= -\lambda_{ji}
+\end{equation}
+
+
+So
+\begin{equation}
+\frac{\partial C_{ij}}{\partial s_i}
+= - \lambda_{ij}
+\end{equation}
+
+
+\begin{equation}
+\frac{\partial^2 C_{ij}}{\partial s_i^2}
+= -\frac{\partial \lambda_{ij}}{\partial s_i}
+= \frac{|\Delta Z| e^{o_{ij}}}{(1+e^{o_{ij}})^2}
+= |\Delta Z| \rho_{ij} (1 - \rho_{ij})
+\end{equation}
+
+
+\section{Sum them together}
+\begin{eqnarray}
+C = \sum_{i} \sum_{j:(i,j) \in I} C_{ij}
++ \sum_{i} \sum_{j:(j,i) \in I} C_{ji} \\
+\label{C}
+= \sum_{i} \sum_{j:(i,j) \in I} |\Delta Z_{ij}| \log(1+e^{-o_{ij}})
++ \sum_{i} \sum_{j:(j,i) \in I} |\Delta Z_{ji}| \log(1+e^{-o_{ji}})
+\end{eqnarray}
+
+
+\begin{eqnarray}
+\frac{\partial C}{\partial s_i}
+= \sum_{j:(i,j) \in I} \frac{\partial C_{ij}}{\partial s_i}
++ \sum_{j:(j,i) \in I} \frac{\partial C_{ji}}{\partial s_i} \\
+= \sum_{j:(i,j) \in I} (-|\Delta Z_{ij}| \rho_{ij})
++ \sum_{j:(j,i) \in I} |\Delta Z_{ji}| \rho_{ji} \\
+= \sum_{j:(i,j) \in I} (-\lambda_{ij})
++ \sum_{j:(j,i) \in I} \lambda_{ji}
+\end{eqnarray}
+
+
+\begin{eqnarray}
+\lambda_i
+\equiv \sum_{j:(i,j)\in I} \lambda_{ij} + \sum_{j:(j,i)\in I} \lambda_{ij} \\
+= \sum_{j:(i,j)\in I} \lambda_{ij} - \sum_{j:(j,i)\in I} \lambda_{ji}
+\end{eqnarray}
+
+
+So
+\begin{equation}
+\label{d}
+\frac{\partial C}{\partial s_i}
+= - \lambda_i
+\end{equation}
+
+
+\begin{eqnarray}
+\frac{\partial^2 C}{\partial s_i^2}
+= \sum_{j:(i,j) \in I} \frac{\partial^2 C_{ij}}{\partial s_i^2}
++ \sum_{j:(j,i) \in I} \frac{\partial^2 C_{ji}}{\partial s_i^2} \\
+= \sum_{j:(i,j) \in I} |\Delta Z_{ij}| \rho_{ij} (1 - \rho_{ij})
++ \sum_{j:(j,i) \in I} |\Delta Z_{ji}| \rho_{ji} (1 - \rho_{ji}) \\
+= \sum_{j:(i,j) \in I} (-\frac{\partial \lambda_{ij}}{\partial s_i})
++ \sum_{j:(j,i) \in I} (-\frac{\partial \lambda_{ji}}{\partial s_j}) \\
+= \sum_{j:(i,j) \in I} (-\frac{\partial \lambda_{ij}}{\partial s_i})
++ \sum_{j:(j,i) \in I} \frac{\partial \lambda_{ji}}{\partial s_i}
+\end{eqnarray}
+
+
+So
+\begin{equation}
+\label{dd}
+\frac{\partial^2 C}{\partial s_i^2}
+= - \frac{\partial \lambda_i}{\partial s_i}
+\end{equation}
+
+
+\section{Gradient Boosting}
+We consider $L$ a function of input score $y$ and model function $F=F(x)$: $L = L(y, F)$.
+Our goal is
+\begin{equation}
+\min_{F} L(y, F)
+\end{equation}
+
+
+As in ordinary gradient descent, $F$ is iteratively updated in functional space.
+\begin{equation}
+\label{gb1}
+F^{(n+1)} = F^{(n)} - \rho \left.\frac{\partial L(y, F)}{\partial F}\right|_{F=F^{(n)}}
+\end{equation}
+$\rho$ is a step length, chosen
+\begin{equation}
+\label{gb2}
+\rho = argmin_{\rho} C\left(y, F^{(n)} - \rho \left.\frac{\partial L(y, F)}{\partial F}\right|_{F=F^{(n)}}\right)
+\end{equation}
+
+
+\ref{gb1} and \ref{gb2} can be re-interpreted as
+\begin{equation}
+F^{(n+1)} = F^{(n)} + \rho f^{(n)}(x)
+\end{equation}
+where $f^{(n)}(x)$ is a model that fits pseudo-response $\{\widetilde{y}\}_i$.
+\begin{equation}
+\widetilde{y}_i = - \left.\frac{\partial L(y_i, F)}{\partial F}\right|_{F=F^{(n)}}
+\end{equation}
+Then $\rho$ is chosen
+\begin{equation}
+\rho = argmin_{\rho} L(y, F^{(n)} + \rho f^{(n)}(x))
+\end{equation}
+
+
+\section{Gradient Boosting Regression Trees}
+Particularly, we choose $f(x)$ as a regression tree in LambdaMART.
+\begin{equation}
+f(x) = f(x, \{\gamma_j, R_j\}_i^J) = \sum_{j=1}^{J}\gamma_j 1(x \in R_j)
+\end{equation}
+$J$ is the number of leaves.
+$\{R_j\}_i^J$ are disjoint regions that cover all feature space, each of them is covered in one leaf.
+$\{\gamma_j\}_i^J$ are the value in the corresponding leaf.
+
+
+In this circumstance, we first construct $\{R_j\}_i^J$ to fit $\{\widetilde{y}\}_i$ by least-squares,
+then use \ref{gb1},
+\begin{equation}
+F^{(n+1)} = F^{(n)} + \sum_{j=1}^{J}\gamma_j 1(x \in R_j)
+\end{equation}
+use \ref{gb2}.
+\begin{equation}
+\label{gb3}
+\gamma_j = argmin_{\gamma} \sum_{i:x_i \in R_j} L\left(y_i, F^{(n)}(x_i) + \gamma \right)
+= argmin_{\gamma} \sum_{i:x_i \in R_j} g
+\end{equation}
+where
+\begin{equation}
+g = g(y_i, F^{(n)}(x_i)) = L\left(y_i, F^{(n)}(x_i) + \gamma \right)
+\end{equation}
+
+
+When there is no closed form solution to $\ref{gb3}$,
+we approximate it by a single Newton step.
+This is
+\begin{equation}
+\gamma_j = - \frac
+{\sum_{i:x_i \in R_j} \frac{\partial g}{\partial F}}
+{\sum_{i:x_i \in R_j} \frac{\partial^2 g}{\partial F^2}}
+\end{equation}
+
+
+\section{LambdaMART}
+Our goal is
+\begin{equation}
+\min_{F} (-C)
+\end{equation}
+with $-C$ defined in \ref{C},
+with first order derivatives $-\frac{\partial C}{\partial s_i}$ defined in \ref{d},
+with second order derivatives $-\frac{\partial^2 C}{\partial s_i^2}$ defined in \ref{dd}.
+
+
+\begin{thebibliography}{}
+\bibitem[1]{Burges 2009}
+Qiang Wu, Christopher J.C. Burges, Krysta M. Svore, Jianfeng Gao.
+Adapting Boosting for Information Retrieval Measures.
+Learning to Rank for Information Retrieval DOI 10.1007/s10791-009-9112-1, 2009
+\bibitem[2]{Burges 2010}
+Christopher J.C. Burges.
+From RankNet to LambdaRank to LambdaMART: An Overview.
+Microsoft Research Technical Report, Jan. 2010.
+\bibitem[3]{Friedman 1999}
+Jerome H. Friedman.
+Greedy function Approximation: A Gradient Boosting Machine.
+Annals of Statistics, Vol. 29 (2001), pp. 1189-1232, 1999.
+\end{thebibliography}
+
+
+\end{document}
+
