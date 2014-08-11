@@ -283,11 +283,11 @@ void GBDTPredictor::clear()
 GBDTTrainer::GBDTTrainer(const XYSet& set, const TreeParam& param)
     : full_set_(set), param_(param), full_fx_()
 {
-    if (param_.gbdt_loss == "lad")
+    if (param_.loss == "lad")
     {
         holder_ = new LADLossNode(param, 0);
     }
-    else if (param_.gbdt_loss == "logistic")
+    else if (param_.loss == "logistic")
     {
         holder_ = new LogisticLossNode(param, 0);
     }
@@ -321,7 +321,7 @@ static void record_loss_drop(const TreeNodeBase * node,
 
 void GBDTTrainer::dump_feature_importance() const
 {
-    if (param_.gbdt_sample_rate != 1.0)
+    if (param_.sample_rate != 1.0)
         printf("sample rate is not 1.0, feature importance is unfair\n");
 
     std::vector<double> loss_drop_vector;
@@ -345,7 +345,7 @@ void GBDTTrainer::train()
     if (param_.verbose)
         printf("total_loss=%lf\n", total_loss());
 
-    for (size_t i=0; i<param_.gbdt_tree_number; i++)
+    for (size_t i=0; i<param_.tree_number; i++)
     {
         printf("training tree No.%d... ", (int)i);
         TreeNodeBase * tree = holder_->train(full_set_, param_, &full_fx_);

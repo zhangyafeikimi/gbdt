@@ -165,7 +165,7 @@ private:
         root->leaf() = false;
 
         XYSetRef& root_xy_set = root->set();
-        if (param.gbdt_sample_rate >= 1.0)
+        if (param.sample_rate >= 1.0)
         {
             root->add_xy_set_fxs(full_set, full_fx);
         }
@@ -173,7 +173,7 @@ private:
         {
             // sample 'full_set' and 'full_fx' together
             root_xy_set.spec() = &full_set.spec();
-            Rand01 r(param.gbdt_sample_rate);
+            Rand01 r(param.sample_rate);
             for (size_t i=0, s=full_set.size(); i<s; i++)
             {
                 if (r.is_one())
@@ -278,9 +278,9 @@ private:
 
     void shrink()
     {
-        if (param().gbdt_learning_rate >= 1.0)
+        if (param().learning_rate >= 1.0)
             return;
-        y() = y() * param().gbdt_learning_rate;
+        y() = y() * param().learning_rate;
     }
 
     void update_fx(const XYSet& full_set, std::vector<double> * full_fx) const

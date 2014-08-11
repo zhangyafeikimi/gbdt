@@ -13,21 +13,9 @@ static void print_usage(const char * program, FILE * fp)
         "usage:\n"
         "    -h, show help\n"
         "    -c [configuration file], specify the configuration file\n"
-        "        configuration file example:\n"
-        "        -------------------------\n"
-        "        verbose = 1\n"
-        "        max_level = 5\n"
-        "        max_leaf_number = 20\n"
-        "        max_x_values_number = 200\n"
-        "        min_values_in_leaf = 10\n"
-        "        gbdt_tree_number = 400\n"
-        "        gbdt_learning_rate = 0.1\n"
-        "        gbdt_sample_rate = 0.9\n"
-        "        gbdt_loss = ls\n"
-        "        training_sample = input\n"
-        "        training_sample_format = liblinear\n"
-        "        model = output.json\n"
-        "        -------------------------\n");
+        "        see README.md for specifications\n"
+        "        see data/heart_scale.conf or data/weibo.conf for example\n"
+        );
 }
 
 struct TreeParamSpec
@@ -37,12 +25,13 @@ struct TreeParamSpec
     void * v;
     void (* assign)(const std::string& s, void * v);
     void (* check)(void * v);
+    bool _set;
 };
 
-#define DECLARE_PARAM(type_name, name) \
-{#type_name, #name, (void *)&param->name, assign_##type_name, 0}
-#define DECLARE_PARAM_CHECKER(type_name, name) \
-{#type_name, #name, (void *)&param->name, assign_##type_name, check_##name}
+#define DECLARE_PARAM(param, type_name, name) \
+{#type_name, #name, (void *)(&param->name), assign_##type_name, 0, false}
+#define DECLARE_PARAM2(param, type_name, name) \
+{#type_name, #name, (void *)(&param->name), assign_##type_name, check_##name, false}
 
 static void assign_int(const std::string& s, void * v)
 {
@@ -73,12 +62,12 @@ static void check_min_values_in_leaf(void * v)
     }
 }
 
-static void check_gbdt_loss(void * v)
+static void check_loss(void * v)
 {
     std::string loss = *(std::string *)v;
     if (loss != "ls" && loss != "lad" && loss != "logistic")
     {
-        fprintf(stderr, "invalid \"gbdt_loss\", it should be \"ls\", \"lad\" or \"logistic\"\n");
+        fprintf(stderr, "invalid \"loss\", it should be \"ls\", \"lad\" or \"logistic\"\n");
         exit(1);
     }
 }
@@ -96,32 +85,22 @@ static void check_training_sample_format(void * v)
 class TreeParamLoader
 {
 private:
-    int add_key_value(TreeParam * param, const std::string& key, const std::string& value)
+    int add_key_value(
+        TreeParam * param,
+        TreeParamSpec * specs,
+        size_t spec_length,
+        const std::string& key,
+        const std::string& value)
     {
-        TreeParamSpec specs[] = 
+        for (size_t i=0; i<spec_length; i++)
         {
-            DECLARE_PARAM(int, verbose),
-            DECLARE_PARAM(size_t, max_level),
-            DECLARE_PARAM(size_t, max_leaf_number),
-            DECLARE_PARAM(size_t, max_x_values_number),
-            DECLARE_PARAM_CHECKER(size_t, min_values_in_leaf),
-            DECLARE_PARAM(size_t, gbdt_tree_number),
-            DECLARE_PARAM(double, gbdt_learning_rate),
-            DECLARE_PARAM(double, gbdt_sample_rate),
-            DECLARE_PARAM_CHECKER(std_string, gbdt_loss),
-            DECLARE_PARAM(std_string, training_sample),
-            DECLARE_PARAM_CHECKER(std_string, training_sample_format),
-            DECLARE_PARAM(std_string, model),
-        };
-
-        for (size_t i=0; i<sizeof(specs)/sizeof(specs[0]); i++)
-        {
-            const TreeParamSpec& spec = specs[i];
+            TreeParamSpec& spec = specs[i];
             if (key == spec.name)
             {
                 spec.assign(value, spec.v);
                 if (spec.check)
                     spec.check(spec.v);
+                spec._set = true;
                 return 0;
             }
         }
@@ -175,6 +154,23 @@ public:
         ScopedPtrMalloc<char *> line_guard(line);
         char * to_read = line;
 
+        TreeParamSpec specs[] =
+        {
+            DECLARE_PARAM(param, int, verbose),
+            DECLARE_PARAM(param, size_t, max_level),
+            DECLARE_PARAM(param, size_t, max_leaf_number),
+            DECLARE_PARAM(param, size_t, max_x_values_number),
+            DECLARE_PARAM2(param, size_t, min_values_in_leaf),
+            DECLARE_PARAM(param, size_t, tree_number),
+            DECLARE_PARAM(param, double, learning_rate),
+            DECLARE_PARAM(param, double, sample_rate),
+            DECLARE_PARAM2(param, std_string, loss),
+            DECLARE_PARAM(param, std_string, training_sample),
+            DECLARE_PARAM2(param, std_string, training_sample_format),
+            DECLARE_PARAM(param, std_string, model),
+        };
+        size_t spec_length = sizeof(specs)/sizeof(specs[0]);
+
         for (;;)
         {
             line[length-2] = 0;
@@ -200,11 +196,21 @@ public:
                     return -1;
                 }
 
-                if (add_key_value(param, key, value) == -1)
+                if (add_key_value(param, specs, spec_length, key, value) == -1)
                 {
                     fprintf(stderr, "invalid key or value:\"%s\", \"%s\"\n", key.c_str(), value.c_str());
                     return -1;
                 }
+            }
+        }
+
+        for (size_t i=0; i<spec_length; i++)
+        {
+            const TreeParamSpec& spec = specs[i];
+            if (!spec._set)
+            {
+                fprintf(stderr, "\"%s\" is not set in \"%s\"\n", spec.name, filename);
+                return -1;
             }
         }
 
@@ -215,19 +221,6 @@ public:
 int parse_tree_param(int argc, char ** argv, TreeParam * param)
 {
     assert(param);
-    // set default values
-    param->verbose = 1;
-    param->max_level = 5;
-    param->max_leaf_number = 20;
-    param->max_x_values_number = 200;
-    param->min_values_in_leaf = 10;
-    param->gbdt_tree_number = 400;
-    param->gbdt_learning_rate = 0.1;
-    param->gbdt_sample_rate = 0.9;
-    param->gbdt_loss = "ls";
-    param->training_sample = "input";
-    param->training_sample_format = "liblinear";
-    param->model = "output.json";
 
     std::string config_filename;
     for (int i=1; i<argc; i++)

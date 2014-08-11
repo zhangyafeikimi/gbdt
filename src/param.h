@@ -4,8 +4,7 @@
 #include <stddef.h>
 #include <string>
 
-// global parameters for a learning job
-// see README for their meanings
+// see README.md for specifications
 struct TreeParam
 {
     int verbose;
@@ -15,10 +14,10 @@ struct TreeParam
     size_t max_x_values_number;
     size_t min_values_in_leaf;
 
-    size_t gbdt_tree_number;
-    double gbdt_learning_rate;
-    double gbdt_sample_rate;
-    std::string gbdt_loss;
+    size_t tree_number;
+    double learning_rate;
+    double sample_rate;
+    std::string loss;
 
     std::string training_sample;
     std::string training_sample_format;

@@ -29,13 +29,13 @@ Configuration File
 
 >min_values_in_leaf = 10
 
->gbdt_tree_number = 400
+>tree_number = 400
 
->gbdt_learning_rate = 0.1
+>learning_rate = 0.1
 
->gbdt_sample_rate = 0.9
+>sample_rate = 0.9
 
->gbdt_loss = ls
+>loss = ls
 
 >training_sample = input
 
@@ -65,16 +65,16 @@ It should be >= 1.
 
 **ml-gbdt** will stop splitting a node when it has less equal than **min_values_in_leaf** training samples, and make it a leaf node.
 
-####gbdt_tree_number
+####tree_number
 Number of trees.
 
-####gbdt_learning_rate
+####learning_rate
 Learning rate, should be in [0.0, 1.0], defined at **Friedman (March 1999)**.
 
-####gbdt_sample_rate
+####sample_rate
 Sample rate, should be in [0.0, 1.0], defined at **Friedman (March 1999)**.
 
-####gbdt_loss
+####loss
 GBDT loss type, can be "ls", "lad" or "logistic".
 
 logistic loss is only suitable for -1/1 binary classification.

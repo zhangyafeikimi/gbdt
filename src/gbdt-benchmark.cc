@@ -16,11 +16,11 @@ int main()
     param.max_leaf_number = 20;
     param.max_x_values_number = 200;
     param.min_values_in_leaf = 10;
-    param.gbdt_tree_number = 400;
-    param.gbdt_sample_rate = 0.9;
+    param.tree_number = 400;
+    param.sample_rate = 0.9;
 
-    param.gbdt_learning_rate = 0.025;
-    param.gbdt_loss = "logistic";
+    param.learning_rate = 0.025;
+    param.loss = "logistic";
     {
         GBDTTrainer trainer(set, param);
         trainer.train();
@@ -44,8 +44,8 @@ int main()
         }
     }
 
-    //param.gbdt_learning_rate = 0.05;
-    //param.gbdt_loss = "ls";
+    //param.learning_rate = 0.05;
+    //param.loss = "ls";
     //{
     //    GBDTTrainer trainer(set, param);
     //    trainer.train();
@@ -69,8 +69,8 @@ int main()
     //    }
     //}
 
-    //param.gbdt_learning_rate = 0.01;
-    //param.gbdt_loss = "lad";
+    //param.learning_rate = 0.01;
+    //param.loss = "lad";
     //{
     //    GBDTTrainer trainer(set, param);
     //    trainer.train();
