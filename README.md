@@ -75,9 +75,11 @@ Learning rate, should be in [0.0, 1.0], defined at **Friedman (March 1999)**.
 Sample rate, should be in [0.0, 1.0], defined at **Friedman (March 1999)**.
 
 ####gbdt_loss
-GBDT loss type, can be "ls" or "lad".
+GBDT loss type, can be "ls", "lad" or "logistic".
 
-LS and LAD loss are defined at **Friedman (February 1999)**
+logistic loss is only suitable for -1/1 binary classification.
+
+LS, LAD and logistic loss are defined at **Friedman (February 1999)**
 
 ####training_sample
 Filename of training samples.
@@ -138,8 +140,10 @@ It is in json and very easy to understand.
 Others
 -----
 ### json2cxx.py
-"json2cxx.py" lies in directory "tools".
+"json2cxx.py" lies in directory "bin".
 It can be used to convert a model(json) to a c++ predicting function, so that an interpreter for predicting is avoided.
+
+There are pre-built binaries by Visual Studio 2012 in directory "bin".
 
 ### Classification vs Regression
 GBDT is a robust regression model for classification and regression.
