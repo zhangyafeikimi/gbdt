@@ -11,7 +11,6 @@ struct TreeParam
 
     size_t max_level;
     size_t max_leaf_number;
-    size_t max_x_values_number;
     size_t min_values_in_leaf;
 
     size_t tree_number;

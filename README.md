@@ -25,8 +25,6 @@ Configuration File
 
 >max_leaf_number = 20
 
->max_x_values_number = 200
-
 >min_values_in_leaf = 10
 
 >tree_number = 400
@@ -56,9 +54,6 @@ Max level of all decision trees.
 
 ####max_leaf_number
 Max number of leaf node in all decision trees.
-
-####max_x_values_number
-Max unique values of one feature used when a tree node is being split by this feature.
 
 ####min_values_in_leaf
 It should be >= 1.

@@ -159,7 +159,6 @@ public:
             DECLARE_PARAM(param, int, verbose),
             DECLARE_PARAM(param, size_t, max_level),
             DECLARE_PARAM(param, size_t, max_leaf_number),
-            DECLARE_PARAM(param, size_t, max_x_values_number),
             DECLARE_PARAM2(param, size_t, min_values_in_leaf),
             DECLARE_PARAM(param, size_t, tree_number),
             DECLARE_PARAM(param, double, learning_rate),

@@ -2,6 +2,7 @@
 #include "x.h"
 #include <assert.h>
 #include <string.h>
+#include <algorithm>
 
 class Loader
 {
@@ -10,6 +11,62 @@ public:
     {
         if (*cur == ' ' || *cur == '\t')
             cur++;
+    }
+
+    static void get_unique_x_values(XYSet * set)
+    {
+        set->xsamples().resize(set->get_x_type_size());
+        for (size_t i=0, s=set->spec().get_x_type_size(); i<s; i++)
+            get_unique_x_values(set, &set->get_x_values(i), i, set->get_x_type(i));
+    }
+
+    // get some unique x values used when tree is being split
+    static void get_unique_x_values(
+        XYSet * set,
+        CompoundValueVector * x_values,
+        size_t x_index,
+        kXType x_type)
+    {
+        static const size_t MAX_UNIQUE_X_NUMERICAL = 100000;
+        static const size_t MAX_UNIQUE_X_CATEGORY = 128;
+
+        x_values->clear();
+
+        if (x_type == kXType_Numerical)
+        {
+            for (size_t i=0, s=std::min(MAX_UNIQUE_X_NUMERICAL, set->size()); i<s; i++)
+                x_values->push_back(set->get(i).x(x_index));
+
+            std::sort(x_values->begin(), x_values->end(), CompoundValueDoubleLess());
+
+            double _min = x_values->front().d();
+            // ensure the two continuous x values are not too near
+            double delta = (1e-3);
+
+            CompoundValueVector new_x_values;
+
+            double last = _min - delta * 2;
+            for (size_t i=0, s=x_values->size(); i<s; i++)
+            {
+                const CompoundValue& _now = (*x_values)[i];
+                double _now_d = _now.d();
+                if (_now_d - last > delta)
+                {
+                    new_x_values.push_back(_now);
+                    last = _now_d;
+                }
+            }
+            x_values->swap(new_x_values);
+        }
+        else
+        {
+            for (size_t i=0, s=std::min(MAX_UNIQUE_X_CATEGORY, set->size()); i<s; i++)
+                x_values->push_back(set->get(i).x(x_index));
+
+            std::sort(x_values->begin(), x_values->end(), CompoundValueIntLess());
+            x_values->erase(std::unique(x_values->begin(), x_values->end(), CompoundValueIntEqual()),
+                x_values->end());
+        }
     }
 
     virtual ~Loader() {}
@@ -146,13 +203,17 @@ public:
         }
 
         printf("deduce spec: %d columns\n", (int)x_column_max_);
-        printf("loaded %d training samples, %d bad training samples\n", total_lines, bad_lines);
+        printf("loaded %d training samples\n", (int)set->size());
 
         for (size_t i=0; i<x_column_max_; i++)
-            set->add_xtype(kXType_Numerical);
+            set->add_x_type(kXType_Numerical);
         for (size_t i=0, s=set->size(); i<s; i++)
             set->get(i).resize_x(x_column_max_);
 
+        if (set->size() == 0)
+            return -1;
+
+        get_unique_x_values(set);
         return 0;
     }
 };
@@ -185,11 +246,11 @@ private:
             {
             case 'n':
             case 'N':
-                spec->add_xtype(kXType_Numerical);
+                spec->add_x_type(kXType_Numerical);
                 break;
             case 'c':
             case 'C':
-                spec->add_xtype(kXType_Category);
+                spec->add_x_type(kXType_Category);
                 break;
             default:
                 fprintf(stderr, "invalid spec description\n");
@@ -242,10 +303,10 @@ private:
         }
 
         // X
-        xy->resize_x(spec_.get_xtype_size());
-        for (size_t i=0, s=spec_.get_xtype_size(); i<s; i++)
+        xy->resize_x(spec_.get_x_type_size());
+        for (size_t i=0, s=spec_.get_x_type_size(); i<s; i++)
         {
-            kXType xtype = spec_.get_xtype(i);
+            kXType xtype = spec_.get_x_type(i);
             if (xtype == kXType_Numerical)
             {
                 double value = strtod(cur, &end);
@@ -338,10 +399,15 @@ public:
             }
         }
 
-        printf("loaded spec: %d colunms\n", (int)spec_.get_xtype_size());
-        printf("loaded %d training samples, %d bad training samples\n", total_lines, bad_lines);
+        printf("loaded spec: %d colunms\n", (int)spec_.get_x_type_size());
+        printf("loaded %d training samples\n", (int)set->size());
 
         set->spec() = spec_;
+
+        if (set->size() == 0)
+            return -1;
+
+        get_unique_x_values(set);
         return 0;
     }
 };

@@ -6,7 +6,6 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <algorithm>
 #include <limits>
 #include <list>
 
@@ -173,6 +172,7 @@ private:
         {
             // sample 'full_set' and 'full_fx' together
             root_xy_set.spec() = &full_set.spec();
+            root_xy_set.xsamples() = &full_set.xsamples();
             Rand01 r(param.sample_rate);
             for (size_t i=0, s=full_set.size(); i<s; i++)
             {
@@ -180,7 +180,7 @@ private:
                     root->add_xy_fx(full_set.get(i), full_fx[i]);
             }
         }
-        assert(root_xy_set.get_xtype_size() != 0);
+        assert(root_xy_set.get_x_type_size() != 0);
         assert(root_xy_set.size() != 0);
 
         root->update_response();
@@ -246,11 +246,13 @@ private:
 
         TreeNodeBase * _left = clone(parent->param(), parent->level() + 1);
         _left->set().spec() = parent_xy_set.spec();
+        _left->set().xsamples() = parent_xy_set.xsamples();
         _left->leaf() = false;
         _left->y() = y_left;
 
         TreeNodeBase * _right = clone(parent->param(), parent->level() + 1);
         _right->set().spec() = parent_xy_set.spec();
+        _right->set().xsamples() = parent_xy_set.xsamples();
         _right->leaf() = false;
         _right->y() = y_right;
 
@@ -303,32 +305,6 @@ private:
             right()->drain();
     }
 
-    // get some unique x values(get most 'max_size' x values)
-    // for finding the 'best' x split
-    // TODO: If learning rate is 1.0,
-    // we can get a pre-sorted list of unique x values.
-    void get_unique_x_values(
-        size_t x_index,
-        size_t max_size,
-        CompoundValueVector * x_values) const
-    {
-        x_values->clear();
-        for (size_t i=0, s=std::min(max_size, set().size()); i<s; i++)
-            x_values->push_back(set().get(i).x(x_index));
-
-        kXType xtype = set().get_xtype(x_index);
-        if (xtype == kXType_Numerical)
-        {
-            std::sort(x_values->begin(), x_values->end(), CompoundValueDoubleLess());
-        }
-        else
-        {
-            std::sort(x_values->begin(), x_values->end(), CompoundValueIntLess());
-            x_values->erase(std::unique(x_values->begin(), x_values->end(), CompoundValueIntEqual()),
-                x_values->end());
-        }
-    }
-
     void min_loss_on_all_features(
         size_t * _split_x_index,
         kXType * _split_x_type,
@@ -338,9 +314,9 @@ private:
         double * min_loss) const
     {
         *min_loss = std::numeric_limits<double>::max();
-        for (size_t x_index=0, s=set().get_xtype_size(); x_index<s; x_index++)
+        for (size_t x_index=0, s=set().get_x_type_size(); x_index<s; x_index++)
         {
-            kXType x_type = set().get_xtype(x_index);
+            kXType x_type = set().get_x_type(x_index);
             CompoundValue x_value;
             double y_left = 0.0;
             double y_right = 0.0;
@@ -366,12 +342,11 @@ private:
         double * _y_right,
         double * min_loss) const
     {
-        CompoundValueVector x_values;
-        get_unique_x_values(_split_x_index, param().max_x_values_number, &x_values);
+        const CompoundValueVector& unique_x_values = set().get_x_values(_split_x_index);
         *min_loss = std::numeric_limits<double>::max();
-        for (size_t i=0, s=x_values.size(); i<s; i++)
+        for (size_t i=0, s=unique_x_values.size(); i<s; i++)
         {
-            const CompoundValue& x_value = x_values[i];
+            const CompoundValue& x_value = unique_x_values[i];
             double y_left;
             double y_right;
             double loss;

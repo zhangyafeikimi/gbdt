@@ -14,7 +14,6 @@ int main()
     param.verbose = 1;
     param.max_level = 5;
     param.max_leaf_number = 20;
-    param.max_x_values_number = 200;
     param.min_values_in_leaf = 10;
     param.tree_number = 400;
     param.sample_rate = 0.9;

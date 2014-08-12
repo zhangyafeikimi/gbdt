@@ -18,13 +18,13 @@ enum kXType
 class XYSpec
 {
 private:
-    std::vector<kXType> xtypes_;
+    std::vector<kXType> x_types_;
 
 public:
-    size_t get_xtype_size() const {return xtypes_.size();}
-    kXType get_xtype(size_t i) const {return xtypes_[i];}
-    void add_xtype(kXType xtype) {xtypes_.push_back(xtype);}
-    void clear_xtype() {xtypes_.clear();}
+    size_t get_x_type_size() const {return x_types_.size();}
+    kXType get_x_type(size_t i) const {return x_types_[i];}
+    void add_x_type(kXType x_type) {x_types_.push_back(x_type);}
+    void clear() {x_types_.clear();}
 };
 
 class CompoundValue
@@ -45,35 +45,6 @@ public:
 };
 
 typedef std::vector<CompoundValue> CompoundValueVector;
-
-class CompoundValueVectorBuilder
-{
-private:
-    CompoundValueVector vector_;
-public:
-    CompoundValueVectorBuilder& d(double _d)
-    {
-        CompoundValue v;
-        v.d() = _d;
-        vector_.push_back(v);
-        return *this;
-    }
-
-    CompoundValueVectorBuilder& i(int _i)
-    {
-        CompoundValue v;
-        v.i() = _i;
-        vector_.push_back(v);
-        return *this;
-    }
-
-    CompoundValueVector build()
-    {
-        CompoundValueVector empty;
-        empty.swap(vector_);
-        return empty;
-    }
-};
 
 struct CompoundValueDoubleLess
 {
@@ -127,15 +98,24 @@ class XYSet
 {
 private:
     XYSpec spec_;
+    std::vector<CompoundValueVector> x_values_;
     std::vector<XY> samples_;
 
 public:
     XYSpec& spec() {return spec_;}
     const XYSpec& spec() const {return spec_;}
 
-    size_t get_xtype_size() const {return spec_.get_xtype_size();}
-    kXType get_xtype(size_t i) const {return spec_.get_xtype(i);}
-    void add_xtype(kXType xtype) {spec_.add_xtype(xtype);}
+    std::vector<CompoundValueVector>& xsamples() {return x_values_;}
+    const std::vector<CompoundValueVector>& xsamples() const {return x_values_;}
+
+    size_t get_x_type_size() const {return spec_.get_x_type_size();}
+    kXType get_x_type(size_t i) const {return spec_.get_x_type(i);}
+    void add_x_type(kXType xtype) {spec_.add_x_type(xtype);}
+
+    size_t get_x_values_size() const {return x_values_.size();}
+    CompoundValueVector& get_x_values(size_t i) {return x_values_[i];}
+    const CompoundValueVector& get_x_values(size_t i) const {return x_values_[i];}
+    void add_x_values(const CompoundValueVector& x_values) {x_values_.push_back(x_values);}
 
     size_t size() const {return samples_.size();}
     XY& get(size_t i) {return samples_[i];}
@@ -144,7 +124,7 @@ public:
 
     void clear()
     {
-        spec_.clear_xtype();
+        spec_.clear();
         samples_.clear();
     }
 };
@@ -153,7 +133,12 @@ public:
 class XYSetRef
 {
 private:
+    // training sample specifications
     const XYSpec * spec_;
+    // x_values_[i] is a collection of pre-sorted x values of the ith feature.
+    // It is used when tree is being split.
+    const std::vector<CompoundValueVector> * x_values_;
+    // training samples
     std::vector<const XY *> samples_;
 
 public:
@@ -162,8 +147,14 @@ public:
     const XYSpec *& spec() {return spec_;}
     const XYSpec * spec() const {return spec_;}
 
-    size_t get_xtype_size() const {return spec_->get_xtype_size();}
-    kXType get_xtype(size_t i) const {return spec_->get_xtype(i);}
+    const std::vector<CompoundValueVector> *& xsamples() {return x_values_;}
+    const std::vector<CompoundValueVector> * xsamples() const {return x_values_;}
+
+    size_t get_x_type_size() const {return spec_->get_x_type_size();}
+    kXType get_x_type(size_t i) const {return spec_->get_x_type(i);}
+
+    size_t get_x_values_size() const {return x_values_->size();}
+    const CompoundValueVector& get_x_values(size_t i) const {return (*x_values_)[i];}
 
     size_t size() const {return samples_.size();}
     const XY& get(size_t i) const {return *samples_[i];}
@@ -171,6 +162,7 @@ public:
     void load(const XYSet& set)
     {
         spec_ = &set.spec();
+        x_values_ = &set.xsamples();
         samples_.clear();
         for (size_t i=0, s=set.size(); i<s; i++)
             add(set.get(i));
@@ -184,6 +176,7 @@ public:
     void clear()
     {
         spec_ = 0;
+        x_values_ = 0;
         samples_.clear();
     }
 };

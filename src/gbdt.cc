@@ -4,6 +4,7 @@
 #include <rapidjson/filestream.h>
 #include <rapidjson/writer.h>
 #include <math.h>
+#include <algorithm>
 
 static double weighted_mean_y(const XYSet& full_set)
 {
@@ -325,7 +326,7 @@ void GBDTTrainer::dump_feature_importance() const
         printf("sample rate is not 1.0, feature importance is unfair\n");
 
     std::vector<double> loss_drop_vector;
-    loss_drop_vector.resize(full_set_.get_xtype_size(), 0.0);
+    loss_drop_vector.resize(full_set_.get_x_type_size(), 0.0);
 
     for (size_t i=0; i<trees_.size(); i++)
         record_loss_drop(trees_[i], trees_[i]->total_loss(), &loss_drop_vector);
@@ -477,9 +478,9 @@ static void save_spec(const XYSpec& spec, Value * spec_value,
                       Document::AllocatorType& allocator)
 {
     spec_value->SetArray();
-    for (size_t i=0, s=spec.get_xtype_size(); i<s; i++)
+    for (size_t i=0, s=spec.get_x_type_size(); i<s; i++)
     {
-        kXType x_type = spec.get_xtype(i);
+        kXType x_type = spec.get_x_type(i);
         spec_value->PushBack((x_type == kXType_Numerical) ? "numerical" : "category",
             allocator);
     }
