@@ -172,7 +172,7 @@ private:
         {
             // sample 'full_set' and 'full_fx' together
             root_xy_set.spec() = &full_set.spec();
-            root_xy_set.xsamples() = &full_set.xsamples();
+            root_xy_set.x_values() = &full_set.x_values();
             Rand01 r(param.sample_rate);
             for (size_t i=0, s=full_set.size(); i<s; i++)
             {
@@ -246,13 +246,13 @@ private:
 
         TreeNodeBase * _left = clone(parent->param(), parent->level() + 1);
         _left->set().spec() = parent_xy_set.spec();
-        _left->set().xsamples() = parent_xy_set.xsamples();
+        _left->set().x_values() = parent_xy_set.x_values();
         _left->leaf() = false;
         _left->y() = y_left;
 
         TreeNodeBase * _right = clone(parent->param(), parent->level() + 1);
         _right->set().spec() = parent_xy_set.spec();
-        _right->set().xsamples() = parent_xy_set.xsamples();
+        _right->set().x_values() = parent_xy_set.x_values();
         _right->leaf() = false;
         _right->y() = y_right;
 

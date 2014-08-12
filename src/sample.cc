@@ -15,7 +15,7 @@ public:
 
     static void get_unique_x_values(XYSet * set)
     {
-        set->xsamples().resize(set->get_x_type_size());
+        set->x_values().resize(set->get_x_type_size());
         for (size_t i=0, s=set->spec().get_x_type_size(); i<s; i++)
             get_unique_x_values(set, &set->get_x_values(i), i, set->get_x_type(i));
     }
@@ -27,13 +27,12 @@ public:
         size_t x_index,
         kXType x_type)
     {
-        static const size_t MAX_UNIQUE_X_NUMERICAL = 100000;
-        static const size_t MAX_UNIQUE_X_CATEGORY = 128;
-
         x_values->clear();
 
         if (x_type == kXType_Numerical)
         {
+            static const size_t MAX_UNIQUE_X_NUMERICAL = 100000;
+
             for (size_t i=0, s=std::min(MAX_UNIQUE_X_NUMERICAL, set->size()); i<s; i++)
                 x_values->push_back(set->get(i).x(x_index));
 
@@ -60,6 +59,8 @@ public:
         }
         else
         {
+            static const size_t MAX_UNIQUE_X_CATEGORY = 1024;
+
             for (size_t i=0, s=std::min(MAX_UNIQUE_X_CATEGORY, set->size()); i<s; i++)
                 x_values->push_back(set->get(i).x(x_index));
 
@@ -268,7 +269,7 @@ private:
     //1 w:5 53 0 313 6 0 0 4 0 2 0
     //1 w:4 33 0 1793 341 18 0 181 0 0 0
     //1 w:5 32 0 1784 366 15 0 166 0 0 0
-    int load_x(const char * line, XY * xy)
+    int load_xy(const char * line, XY * xy)
     {
         const char * cur = line;
         char * end;
@@ -388,7 +389,7 @@ public:
                 else
                 {
                     XY xy;
-                    if (load_x(line, &xy) == -1)
+                    if (load_xy(line, &xy) == -1)
                     {
                         fprintf(stderr, "parse line failed:\n\"%s\"\n", line);
                         bad_lines++;

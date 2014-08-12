@@ -105,8 +105,8 @@ public:
     XYSpec& spec() {return spec_;}
     const XYSpec& spec() const {return spec_;}
 
-    std::vector<CompoundValueVector>& xsamples() {return x_values_;}
-    const std::vector<CompoundValueVector>& xsamples() const {return x_values_;}
+    std::vector<CompoundValueVector>& x_values() {return x_values_;}
+    const std::vector<CompoundValueVector>& x_values() const {return x_values_;}
 
     size_t get_x_type_size() const {return spec_.get_x_type_size();}
     kXType get_x_type(size_t i) const {return spec_.get_x_type(i);}
@@ -147,8 +147,8 @@ public:
     const XYSpec *& spec() {return spec_;}
     const XYSpec * spec() const {return spec_;}
 
-    const std::vector<CompoundValueVector> *& xsamples() {return x_values_;}
-    const std::vector<CompoundValueVector> * xsamples() const {return x_values_;}
+    const std::vector<CompoundValueVector> *& x_values() {return x_values_;}
+    const std::vector<CompoundValueVector> * x_values() const {return x_values_;}
 
     size_t get_x_type_size() const {return spec_->get_x_type_size();}
     kXType get_x_type(size_t i) const {return spec_->get_x_type(i);}
@@ -162,7 +162,7 @@ public:
     void load(const XYSet& set)
     {
         spec_ = &set.spec();
-        x_values_ = &set.xsamples();
+        x_values_ = &set.x_values();
         samples_.clear();
         for (size_t i=0, s=set.size(); i<s; i++)
             add(set.get(i));
