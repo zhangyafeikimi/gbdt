@@ -263,9 +263,9 @@ g = g(y_i, F_n(x_i)) = L\left(y_i, F_n(x_i) + \gamma \right)
 
 When there is no closed form solution to $\ref{gb3}$,
 we can approximate it by a single Newton step.
-This is(actually $-\gamma$ is the Newton step, Newton update is as $F_{n+1}(x_i) = F_n(x_i) - (-\gamma)$)
+This is
 \begin{equation}
-\gamma_j = \frac
+\gamma_j = - \frac
 {\sum_{i:x_i \in R_j} \frac{\partial g}{\partial F_n}}
 {\sum_{i:x_i \in R_j} \frac{\partial^2 g}{\partial F_n^2}}
 \end{equation}
@@ -324,7 +324,7 @@ F is MART. Overall training framework is depicted below.
   Create a tree $\{R_{lm}\}_{l=1}^L$ to fit $\{x_i, \widetilde{y}_i\}_1^N$ by least-squares\;
   \For{$l=1$ \KwTo $L$}
   {
-    $\gamma_{lm} = \frac
+    $\gamma_{lm} = - \frac
       {\sum_{i:x_i \in R_{lm}} \widetilde{y}_i}
       {\sum_{i:x_i \in R_{lm}} w_i}$\;
   }
