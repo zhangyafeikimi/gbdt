@@ -194,10 +194,18 @@ private:
         fx_ = full_fx;
     }
 
-    // for root and non-root
+    // for root
     inline void add_xy_fx(const XY& xy, double f)
     {
         set().add(xy);
+        fx_.push_back(f);
+    }
+
+    // for non-root
+    inline void add_xy_response_fx(const XY& xy, double response, double f)
+    {
+        set().add(xy);
+        response_.push_back(response);
         fx_.push_back(f);
     }
 
@@ -263,17 +271,16 @@ private:
         const CompoundValue& _split_x_value = parent->split_x_value();
         for (size_t i=0, s=parent_xy_set.size(); i<s; i++)
         {
+            double response = parent->response_[i];
             double fx = parent->fx_[i];
             const XY& xy = parent_xy_set.get(i);
             const CompoundValue& x = xy.x(_split_x_index);
             if (X_LIES_LEFT(x, _split_x_value, parent->split_x_type()))
-                _left->add_xy_fx(xy, fx);
+                _left->add_xy_response_fx(xy, response, fx);
             else
-                _right->add_xy_fx(xy, fx);
+                _right->add_xy_response_fx(xy, response, fx);
         }
 
-        _left->update_response();
-        _right->update_response();
         assert(parent->set().size() ==
             _left->set().size() + _right->set().size());
     }
@@ -457,6 +464,7 @@ public:
         const std::vector<double>& full_fx) const = 0;
 
 protected:
+    // for root
     virtual void update_response() = 0;
     virtual void update_predicted_y() = 0;
 };
