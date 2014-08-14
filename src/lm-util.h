@@ -1,3 +1,6 @@
+#ifndef GBDT_LAMBDA_MART_UTIL_H
+#define GBDT_LAMBDA_MART_UTIL_H
+
 #include <algorithm>
 #include <vector>
 
@@ -20,6 +23,9 @@ struct SortIndicesHelper
     }
 };
 
+// sort 'unsorted' by 'predicator'
+// After this function, 'unsorted' remains unchanged,
+// 'unsorted[(*indices)[i]]' is sorted.
 template <class T, class Predicator>
 void sort_indices(
     const std::vector<T>& unsorted,
@@ -35,21 +41,34 @@ void sort_indices(
         SortIndicesHelper<T, Predicator>(unsorted, indices, predicator));
 }
 
-#include <functional>
-
-int main()
+// T is always double
+template <class T>
+class SymmetricMatrix
 {
-    std::vector<double> unsorted;
-    std::vector<size_t> indices;
+private:
+    std::vector<T> m_;
+    const size_t row_;
 
-    unsorted.push_back(1.0);
-    unsorted.push_back(5.0);
-    unsorted.push_back(3.0);
-    unsorted.push_back(2.0);
-    unsorted.push_back(4.0);
-    unsorted.push_back(10.0);
+public:
+    SymmetricMatrix(size_t row)
+        : row_(row)
+    {
+        m_.resize((row_ + 1) * row_ / 2);
+    }
 
-    sort_indices(unsorted, &indices, std::greater_equal<double>());
+    T& at(size_t i, size_t j)
+    {
+        if (j > i)
+            return at(j, i);
+        return m_[(i + 1) * i / 2 + j];
+    }
 
-    return 0;
-}
+    T at(size_t i, size_t j) const
+    {
+        if (j > i)
+            return at(j, i);
+        return m_[(i + 1) * i / 2 + j];
+    }
+};
+
+#endif// GBDT_LAMBDA_MART_UTIL_H

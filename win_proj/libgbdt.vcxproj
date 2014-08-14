@@ -18,7 +18,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\gbdt.h" />
-    <ClInclude Include="..\src\lambda-mart\sort.h" />
+    <ClInclude Include="..\src\lm-ndcg.h" />
+    <ClInclude Include="..\src\lm-util.h" />
     <ClInclude Include="..\src\param.h" />
     <ClInclude Include="..\src\sample.h" />
     <ClInclude Include="..\src\node.h" />

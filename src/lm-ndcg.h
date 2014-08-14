@@ -1,0 +1,6 @@
+#ifndef GBDT_LAMBDA_MART_NDCG_H
+#define GBDT_LAMBDA_MART_NDCG_H
+
+
+
+#endif// GBDT_LAMBDA_MART_NDCG_H
