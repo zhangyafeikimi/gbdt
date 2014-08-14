@@ -87,12 +87,6 @@ private:
 protected:
     // pseudo response
     std::vector<double> response_;
-    // F(x) for only training samples in this tree node.
-    // NOTE 1: even for a root node,
-    // it is not the F(x) for the whole tree,
-    // but only the root node.
-    // NOTE 2: F(x) is the sums of predicted y of all preceding trees.
-    std::vector<double> fx_;
 
 protected:
     TreeNodeBase(const TreeParam& param, size_t level)
@@ -103,6 +97,7 @@ protected:
 public:
     const TreeParam& param() const {return param_;}
     size_t level() const {return level_;}
+    bool is_root() const {return level_ == 0;}
     TreeNodeBase *& left() {return left_;}
     const TreeNodeBase * left() const {return left_;}
     TreeNodeBase *& right() {return right_;}
@@ -145,7 +140,7 @@ public:
         TreeNodeBase * root = create_root(full_set, param, *full_fx);
         root->build_tree();
         root->update_fx(full_set, full_fx);
-        root->drain();
+        root->clear_tree();
         return root;
     }
 
@@ -162,55 +157,48 @@ private:
     {
         TreeNodeBase * root = clone(param, 0);
         root->leaf() = false;
+        root->sample_and_update_response(full_set, param, full_fx);
+        return root;
+    }
 
-        XYSetRef& root_xy_set = root->set();
+    void sample_and_update_response(
+        const XYSet& full_set,
+        const TreeParam& param,
+        const std::vector<double>& full_fx)
+    {
+        // TODO
+        assert(is_root());
+        XYSetRef& xy_set = set();
         if (param.sample_rate >= 1.0)
         {
-            root->add_xy_set_fxs(full_set, full_fx);
+            xy_set.load(full_set);
+            update_response(full_fx);
         }
         else
         {
+            std::vector<double> sampled_fx;
             // sample 'full_set' and 'full_fx' together
-            root_xy_set.spec() = &full_set.spec();
-            root_xy_set.x_values() = &full_set.x_values();
+            xy_set.spec() = &full_set.spec();
+            xy_set.x_values() = &full_set.x_values();
             Rand01 r(param.sample_rate);
             for (size_t i=0, s=full_set.size(); i<s; i++)
             {
                 if (r.is_one())
-                    root->add_xy_fx(full_set.get(i), full_fx[i]);
+                {
+                    xy_set.add(full_set.get(i));
+                    sampled_fx.push_back(full_fx[i]);
+                }
             }
+            update_response(sampled_fx);
         }
-        assert(root_xy_set.get_x_type_size() != 0);
-        assert(root_xy_set.size() != 0);
 
-        root->update_response();
-        return root;
-    }
-
-    // for root
-    inline void add_xy_set_fxs(const XYSet& full_set, const std::vector<double>& full_fx)
-    {
-        set().load(full_set);
-        fx_ = full_fx;
-    }
-
-    // for root
-    inline void add_xy_fx(const XY& xy, double f)
-    {
-        set().add(xy);
-        fx_.push_back(f);
-    }
-
-    // for non-root
-    inline void add_xy_response_fx(const XY& xy, double response, double f)
-    {
-        set().add(xy);
-        response_.push_back(response);
-        fx_.push_back(f);
+        assert(xy_set.get_x_type_size() != 0);
+        assert(xy_set.size() != 0);
     }
 
     void build_tree()
     {
+        assert(is_root());
         const TreeParam& _param = param();
         std::list<TreeNodeBase *> stack;
         stack.push_back(this);
@@ -233,56 +221,59 @@ private:
                 continue;
             }
 
-            split(node);
+            node->split();
             stack.push_back(node->left());
             stack.push_back(node->right());
         }
     }
 
-    void split(TreeNodeBase * parent) const
+    void split()
     {
-        XYSetRef& parent_xy_set = parent->set();
-        assert(parent_xy_set.size() != 0);
+        const XYSetRef& xy_set = set();
+        assert(xy_set.size() != 0);
         double y_left = 0.0;
         double y_right = 0.0;
-        parent->min_loss_on_all_features(&parent->split_x_index(),
-            &parent->split_x_type(),
-            &parent->split_x_value(),
+        min_loss_on_all_features(&split_x_index(),
+            &split_x_type(),
+            &split_x_value(),
             &y_left,
             &y_right,
-            &parent->loss());
+            &loss());
 
-        TreeNodeBase * _left = clone(parent->param(), parent->level() + 1);
-        _left->set().spec() = parent_xy_set.spec();
-        _left->set().x_values() = parent_xy_set.x_values();
+        TreeNodeBase * _left = clone(param(), level() + 1);
+        _left->set().spec() = xy_set.spec();
+        _left->set().x_values() = xy_set.x_values();
         _left->leaf() = false;
         _left->y() = y_left;
 
-        TreeNodeBase * _right = clone(parent->param(), parent->level() + 1);
-        _right->set().spec() = parent_xy_set.spec();
-        _right->set().x_values() = parent_xy_set.x_values();
+        TreeNodeBase * _right = clone(param(), level() + 1);
+        _right->set().spec() = xy_set.spec();
+        _right->set().x_values() = xy_set.x_values();
         _right->leaf() = false;
         _right->y() = y_right;
 
-        parent->left() = _left;
-        parent->right() = _right;
+        left() = _left;
+        right() = _right;
 
-        size_t _split_x_index = parent->split_x_index();
-        const CompoundValue& _split_x_value = parent->split_x_value();
-        for (size_t i=0, s=parent_xy_set.size(); i<s; i++)
+        split_data(_left, _right);
+    }
+
+    void split_data(TreeNodeBase * _left, TreeNodeBase * _right) const
+    {
+        const XYSetRef& xy_set = set();
+        size_t _split_x_index = split_x_index();
+        const CompoundValue& _split_x_value = split_x_value();
+        for (size_t i=0, s=xy_set.size(); i<s; i++)
         {
-            double response = parent->response_[i];
-            double fx = parent->fx_[i];
-            const XY& xy = parent_xy_set.get(i);
+            const XY& xy = xy_set.get(i);
             const CompoundValue& x = xy.x(_split_x_index);
-            if (X_LIES_LEFT(x, _split_x_value, parent->split_x_type()))
-                _left->add_xy_response_fx(xy, response, fx);
+            if (X_LIES_LEFT(x, _split_x_value, split_x_type()))
+                _left->add_data(xy, this, i);
             else
-                _right->add_xy_response_fx(xy, response, fx);
+                _right->add_data(xy, this, i);
         }
 
-        assert(parent->set().size() ==
-            _left->set().size() + _right->set().size());
+        assert(xy_set.size() == _left->set().size() + _right->set().size());
     }
 
     void shrink()
@@ -294,6 +285,7 @@ private:
 
     void update_fx(const XYSet& full_set, std::vector<double> * full_fx) const
     {
+        assert(is_root());
         for (size_t i=0, s=full_set.size(); i<s; i++)
         {
             const XY& xy = full_set.get(i);
@@ -301,15 +293,13 @@ private:
         }
     }
 
-    void drain()
+    void clear_tree()
     {
-        set().clear();
-        response_.clear();
-        fx_.clear();
+        clear();
         if (left())
-            left()->drain();
+            left()->clear_tree();
         if (right())
-            right()->drain();
+            right()->clear_tree();
     }
 
     void min_loss_on_all_features(
@@ -320,10 +310,11 @@ private:
         double * _y_right,
         double * min_loss) const
     {
+        const XYSetRef& xy_set = set();
         *min_loss = std::numeric_limits<double>::max();
-        for (size_t x_index=0, s=set().get_x_type_size(); x_index<s; x_index++)
+        for (size_t x_index=0, s=xy_set.get_x_type_size(); x_index<s; x_index++)
         {
-            kXType x_type = set().get_x_type(x_index);
+            kXType x_type = xy_set.get_x_type(x_index);
             CompoundValue x_value;
             double y_left = 0.0;
             double y_right = 0.0;
@@ -376,14 +367,15 @@ private:
         double * _y_right,
         double * _loss) const
     {
+        const XYSetRef& xy_set = set();
         double n_left = 0.0;
         double n_right = 0.0;
         double y_left = 0.0;
         double y_right = 0.0;
 
-        for (size_t i=0, s=set().size(); i<s; i++)
+        for (size_t i=0, s=xy_set.size(); i<s; i++)
         {
-            const XY& xy = set().get(i);
+            const XY& xy = xy_set.get(i);
             const CompoundValue& x = xy.x(_split_x_index);
             double weight = xy.weight();
             double response = response_[i];
@@ -417,10 +409,11 @@ private:
         double _y_right,
         double * _loss) const
     {
+        const XYSetRef& xy_set = set();
         double ls_loss = 0.0;
-        for (size_t i=0, s=set().size(); i<s; i++)
+        for (size_t i=0, s=xy_set.size(); i<s; i++)
         {
-            const XY& xy = set().get(i);
+            const XY& xy = xy_set.get(i);
             const CompoundValue& x = xy.x(_split_x_index);
             double weight = xy.weight();
             double diff;
@@ -455,6 +448,7 @@ public:
     virtual TreeNodeBase * clone(
         const TreeParam& param,
         size_t level) const = 0;
+    // for the first tree
     virtual void initial_fx(
         const XYSet& full_set,
         std::vector<double> * full_fx,
@@ -464,8 +458,20 @@ public:
         const std::vector<double>& full_fx) const = 0;
 
 protected:
-    // for root
-    virtual void update_response() = 0;
+    virtual void add_data(const XY& xy, const TreeNodeBase * parent, size_t _index)
+    {
+        assert(!is_root());
+        set().add(xy);
+        response_.push_back(parent->response_[_index]);
+    }
+
+    virtual void clear()
+    {
+        set().clear();
+        response_.clear();
+    }
+
+    virtual void update_response(const std::vector<double>& fx) = 0;
     virtual void update_predicted_y() = 0;
 };
 
@@ -497,7 +503,7 @@ public:
     {assert(0);return 0.0;}
 
 protected:
-    virtual void update_response() {assert(0);}
+    virtual void update_response(const std::vector<double>& fx) {assert(0);}
     virtual void update_predicted_y() {assert(0);}
 };
 

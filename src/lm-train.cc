@@ -1,4 +1,5 @@
-#include "lm-ndcg.h"
+#include "lm-node.h"
+#include "lm-scorer.h"
 #include "lm-util.h"
 #include <stdio.h>
 #include <functional>
