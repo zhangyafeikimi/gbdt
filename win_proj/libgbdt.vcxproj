@@ -14,6 +14,7 @@
     <ClCompile Include="..\src\gbdt.cc" />
     <ClCompile Include="..\src\json.cc" />
     <ClCompile Include="..\src\lm.cc" />
+    <ClCompile Include="..\src\node.cc" />
     <ClCompile Include="..\src\param.cc" />
     <ClCompile Include="..\src\sample.cc" />
     <ClCompile Include="..\src\x.cc" />

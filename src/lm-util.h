@@ -71,4 +71,6 @@ public:
     }
 };
 
+typedef SymmetricMatrix<double> SymmetricMatrixD;
+
 #endif// GBDT_LAMBDA_MART_UTIL_H

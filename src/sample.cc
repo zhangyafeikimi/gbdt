@@ -427,7 +427,7 @@ int load_gbdt(const char * filename, XYSet * set)
     return loader.load(filename, set);
 }
 
-int load_lector4(const char * filename, XYSet * set, std::vector<size_t> * lm_n_samples_per_query)
+int load_lector4(const char * filename, XYSet * set, std::vector<size_t> * n_samples_per_query)
 {
     // TODO
     return 0;

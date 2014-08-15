@@ -1,6 +1,7 @@
 #include "gbdt.h"
 #include "json.h"
 #include "node.h"
+#include <assert.h>
 #include <math.h>
 #include <algorithm>
 
@@ -27,7 +28,7 @@ public:
     LSLossNode(const TreeParam& param, size_t level)
         : TreeNodeBase(param, level) {}
 
-    virtual TreeNodeBase * clone(
+    virtual LSLossNode * clone(
         const TreeParam& param,
         size_t level) const
     {
@@ -135,7 +136,7 @@ public:
     LADLossNode(const TreeParam& param, size_t level)
         : TreeNodeBase(param, level) {}
 
-    virtual TreeNodeBase * clone(
+    virtual LADLossNode * clone(
         const TreeParam& param,
         size_t level) const
     {
@@ -197,7 +198,7 @@ public:
     LogisticLossNode(const TreeParam& param, size_t level)
         : TreeNodeBase(param, level) {}
 
-    virtual TreeNodeBase * clone(
+    virtual LogisticLossNode * clone(
         const TreeParam& param,
         size_t level) const
     {

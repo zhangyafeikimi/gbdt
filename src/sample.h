@@ -187,6 +187,6 @@ int load_liblinear(const char * filename, XYSet * set);
 int load_gbdt(const char * filename, XYSet * set);
 // load LECTOR 4.0 format training samples
 // http://research.microsoft.com/en-us/um/beijing/projects/letor//letor4dataset.aspx
-int load_lector4(const char * filename, XYSet * set, std::vector<size_t> * lm_n_samples_per_query);
+int load_lector4(const char * filename, XYSet * set, std::vector<size_t> * n_samples_per_query);
 
 #endif// GBDT_TRAINING_SAMPLE_H
