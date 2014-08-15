@@ -108,6 +108,7 @@ int load_json(
             delete node;
             for (size_t i=0, s=trees->size(); i<s; i++)
                 delete (*trees)[i];
+            trees->clear();
             return -1;
         }
         trees->push_back(node);

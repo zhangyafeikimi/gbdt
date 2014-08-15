@@ -67,7 +67,9 @@ Number of trees.
 Learning rate, should be in [0.0, 1.0], defined at **Friedman (March 1999)**.
 
 ####sample_rate
-Sample rate, should be in [0.0, 1.0], defined at **Friedman (March 1999)**.
+GBDT Sample rate, should be in [0.0, 1.0], defined at **Friedman (March 1999)**.
+
+LambdaMART ignores it.
 
 ####loss
 GBDT loss type, can be "ls", "lad" or "logistic".
@@ -76,11 +78,13 @@ logistic loss is only suitable for -1/1 binary classification.
 
 LS, LAD and logistic loss are defined at **Friedman (February 1999)**
 
+LambdaMART ignores it.
+
 ####training_sample
 Filename of training samples.
 
 ####training_sample_format
-Format of training sample, can be "liblinear" or "gbdt".
+GBDT training sample format, can be "liblinear" or "gbdt".
 
 **ml-gbdt** is fully compatible with [liblinear](http://www.csie.ntu.edu.tw/~cjlin/liblinear/)/[libsvm](http://www.csie.ntu.edu.tw/~cjlin/libsvm/) format. An example is:
 
@@ -127,6 +131,8 @@ An example of gbdt format is:
 
 > Feature weights.
 
+LambdaMART ignores it.
+LambdaMART uses [LECTOR 4.0](http://research.microsoft.com/en-us/um/beijing/projects/letor//letor4dataset.aspx) format.
 
 ####model
 Filename of the model, the output for "gbdt-train" and the input for "gbdt-predict".

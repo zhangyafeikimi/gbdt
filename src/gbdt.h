@@ -14,8 +14,8 @@ protected:
     double y0_;
     std::vector<TreeNodeBase *> trees_;
 public:
-    GBDTPredictor();
-    virtual ~GBDTPredictor();
+    GBDTPredictor() {}
+    virtual ~GBDTPredictor() {clear();}
     double predict(const CompoundValueVector& X) const;
     double predict_logistic(const CompoundValueVector& X) const;
     int load_json(FILE * fp);
@@ -33,7 +33,7 @@ private:
     void dump_feature_importance() const;
 public:
     GBDTTrainer(const XYSet& set, const TreeParam& param);
-    virtual ~GBDTTrainer();
+    virtual ~GBDTTrainer() {}
     void train();
     void save_json(FILE * fp) const;
 };

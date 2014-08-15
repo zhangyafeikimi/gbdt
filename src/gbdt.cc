@@ -263,10 +263,6 @@ protected:
 /************************************************************************/
 /* GBDTPredictor and GBDTTrainer */
 /************************************************************************/
-GBDTPredictor::GBDTPredictor() {}
-
-GBDTPredictor::~GBDTPredictor() {clear();}
-
 double GBDTPredictor::predict(const CompoundValueVector& X) const
 {
     assert(!trees_.empty());
@@ -285,6 +281,7 @@ void GBDTPredictor::clear()
 {
     for (size_t i=0, s=trees_.size(); i<s; i++)
         delete trees_[i];
+    trees_.clear();
 }
 
 GBDTTrainer::GBDTTrainer(const XYSet& set, const TreeParam& param)
@@ -303,8 +300,6 @@ GBDTTrainer::GBDTTrainer(const XYSet& set, const TreeParam& param)
         holder_ = new LSLossNode(param, 0);
     }
 }
-
-GBDTTrainer::~GBDTTrainer() {}
 
 double GBDTTrainer::total_loss() const
 {
