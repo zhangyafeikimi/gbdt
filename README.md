@@ -1,7 +1,7 @@
 ml-gbdt
 =====================
 
-**ml-gbdt** is a GBDT(MART) training and predicting package.
+**ml-gbdt** is a GBDT(MART) and LambdaMART training and predicting package.
 
 Compiling
 ---------
@@ -11,9 +11,13 @@ Training
 --------
 >./gbdt-train -c [configuration file]
 
+>./lm-train -c [configuration file]
+
 Predicting
 --------
 >./gbdt-predict -c [configuration file]
+
+>./lm-predict -c [configuration file]
 
 Configuration File
 ------------------
@@ -69,24 +73,26 @@ Learning rate, should be in [0.0, 1.0], defined at **Friedman (March 1999)**.
 ####sample_rate
 GBDT Sample rate, should be in [0.0, 1.0], defined at **Friedman (March 1999)**.
 
-LambdaMART ignores it.
+**LambdaMART ignores it.**
 
 ####loss
 GBDT loss type, can be "ls", "lad" or "logistic".
 
-logistic loss is only suitable for -1/1 binary classification.
+LS/LAD loss is suitable for 0/1 or -1/1 classification and regression.
+
+Logistic loss is only suitable for -1/1 binary classification.
 
 LS, LAD and logistic loss are defined at **Friedman (February 1999)**
 
-LambdaMART ignores it.
+**LambdaMART ignores it.**
 
 ####training_sample
-Filename of training samples.
+File name of training samples.
 
 ####training_sample_format
 GBDT training sample format, can be "liblinear" or "gbdt".
 
-**ml-gbdt** is fully compatible with [liblinear](http://www.csie.ntu.edu.tw/~cjlin/liblinear/)/[libsvm](http://www.csie.ntu.edu.tw/~cjlin/libsvm/) format. An example is:
+**gbdt-train/gbdt-predict** is fully compatible with [liblinear](http://www.csie.ntu.edu.tw/~cjlin/liblinear/)/[libsvm](http://www.csie.ntu.edu.tw/~cjlin/libsvm/) format. An example is:
 
 >+1 1:0.708333 2:1 3:1 4:-0.320755 5:-0.105023 6:-1 7:1 8:-0.419847 9:-1 10:-0.225806 12:1 13:-1
 
@@ -131,11 +137,20 @@ An example of gbdt format is:
 
 > Feature weights.
 
-LambdaMART ignores it.
-LambdaMART uses [LECTOR 4.0](http://research.microsoft.com/en-us/um/beijing/projects/letor//letor4dataset.aspx) format.
+**LambdaMART ignores it.** Because LambdaMART uses a [LECTOR 4.0](http://research.microsoft.com/en-us/um/beijing/projects/letor//letor4dataset.aspx) format.
+
+An example of LECTOR 4.0 format is:
+
+> 2 qid:10032 1:0.056537 2:0.000000 3:0.666667 4:1.000000 5:0.067138 ... 45:0.000000 46:0.076923 #docid = GX029-35-5894638 inc = 0.0119881192468859 prob = 0.139842
+
+> 0 qid:10032 1:0.279152 2:0.000000 3:0.000000 4:0.000000 5:0.279152 ... 45:0.250000 46:1.000000 #docid = GX030-77-6315042 inc = 1 prob = 0.341364 
+
+> 0 qid:10032 1:0.130742 2:0.000000 3:0.333333 4:0.000000 5:0.134276 ... 45:0.750000 46:1.000000 #docid = GX140-98-13566007 inc = 1 prob = 0.0701303
+
+> 1 qid:10032 1:0.593640 2:1.000000 3:0.000000 4:0.000000 5:0.600707 ... 45:0.500000 46:0.000000 #docid = GX256-43-0740276 inc = 0.0136292023050293 prob = 0.400738
 
 ####model
-Filename of the model, the output for "gbdt-train" and the input for "gbdt-predict".
+File name of the model, the output for "gbdt-train/lm-train" and the input for "gbdt-predict/lm-predict".
 It is in json and very easy to understand.
 
 Others
@@ -144,15 +159,14 @@ Others
 "json2cxx.py" lies in directory "bin".
 It can be used to convert a model(json) to a c++ predicting function, so that an interpreter for predicting is avoided.
 
-There are pre-built binaries by Visual Studio 2012 in directory "bin".
-
-### Classification vs Regression
-GBDT is a robust regression model for classification and regression.
-
-When y is 0/1 or -1/1, it naturally becomes a classification model.
 
 Reference
 ---------
 [Friedman, J. H. "Greedy Function Approximation: A Gradient Boosting Machine." (February 1999)](http://www-stat.stanford.edu/~jhf/ftp/trebst.pdf)
 
 [Friedman, J. H. "Stochastic Gradient Boosting." (March 1999)](https://statweb.stanford.edu/~jhf/ftp/stobst.pdf)
+
+[Qiang Wu, Christopher J. C. Burges, etc. "Adapting Boosting for Information Retrieval Measures" (2009)](http://research.microsoft.com/en-us/um/people/cburges/papers/lambdamart.pdf)
+
+[Christopher J.C. Burges. "From RankNet to LambdaRank to LambdaMART: An Overview" (2010)](http://research.microsoft.com/pubs/132652/MSR-TR-2010-82.pdf)
+
