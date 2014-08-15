@@ -169,7 +169,7 @@ private:
         // TODO
         assert(is_root());
         XYSetRef& xy_set = set();
-        if (param.sample_rate >= 1.0)
+        if (param.gbdt_sample_rate >= 1.0)
         {
             xy_set.load(full_set);
             update_response(full_fx);
@@ -180,7 +180,7 @@ private:
             // sample 'full_set' and 'full_fx' together
             xy_set.spec() = &full_set.spec();
             xy_set.x_values() = &full_set.x_values();
-            Rand01 r(param.sample_rate);
+            Rand01 r(param.gbdt_sample_rate);
             for (size_t i=0, s=full_set.size(); i<s; i++)
             {
                 if (r.is_one())

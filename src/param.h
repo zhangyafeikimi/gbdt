@@ -15,16 +15,21 @@ struct TreeParam
 
     size_t tree_number;
     double learning_rate;
-    double sample_rate;
-    std::string loss;
 
     std::string training_sample;
     std::string training_sample_format;
     std::string model;
 
+    double gbdt_sample_rate;
+    std::string gbdt_loss;
+
+    std::string lm_metric;
+    size_t lm_ndcg_k;
+
     TreeParam() {}
 };
 
-int parse_tree_param(int argc, char ** argv, TreeParam * param);
+int gbdt_parse_tree_param(int argc, char ** argv, TreeParam * param);
+int lm_parse_tree_param(int argc, char ** argv, TreeParam * param);
 
 #endif// GBDT_PARAM_H

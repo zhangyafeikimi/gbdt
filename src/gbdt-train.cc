@@ -4,7 +4,7 @@
 int main(int argc, char ** argv)
 {
     TreeParam param;
-    if (parse_tree_param(argc, argv, &param) == -1)
+    if (gbdt_parse_tree_param(argc, argv, &param) == -1)
         return 1;
 
     XYSet set;

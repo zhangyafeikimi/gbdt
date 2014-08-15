@@ -16,10 +16,10 @@ int main()
     param.max_leaf_number = 20;
     param.min_values_in_leaf = 10;
     param.tree_number = 400;
-    param.sample_rate = 0.9;
+    param.gbdt_sample_rate = 0.9;
 
     param.learning_rate = 0.025;
-    param.loss = "logistic";
+    param.gbdt_loss = "logistic";
     {
         GBDTTrainer trainer(set, param);
         trainer.train();
@@ -44,7 +44,7 @@ int main()
     }
 
     //param.learning_rate = 0.05;
-    //param.loss = "ls";
+    //param.gbdt_loss = "ls";
     //{
     //    GBDTTrainer trainer(set, param);
     //    trainer.train();
@@ -69,7 +69,7 @@ int main()
     //}
 
     //param.learning_rate = 0.01;
-    //param.loss = "lad";
+    //param.gbdt_loss = "lad";
     //{
     //    GBDTTrainer trainer(set, param);
     //    trainer.train();

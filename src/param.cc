@@ -62,7 +62,17 @@ static void check_min_values_in_leaf(void * v)
     }
 }
 
-static void check_loss(void * v)
+static void check_training_sample_format(void * v)
+{
+    std::string format = *(std::string *)v;
+    if (format != "liblinear" && format != "gbdt")
+    {
+        fprintf(stderr, "invalid \"training_sample_format\", it should be \"liblinear\" or \"gbdt\"\n");
+        exit(1);
+    }
+}
+
+static void check_gbdt_loss(void * v)
 {
     std::string loss = *(std::string *)v;
     if (loss != "ls" && loss != "lad" && loss != "logistic")
@@ -72,12 +82,12 @@ static void check_loss(void * v)
     }
 }
 
-static void check_training_sample_format(void * v)
+static void check_lm_metric(void * v)
 {
-    std::string format = *(std::string *)v;
-    if (format != "liblinear" && format != "gbdt")
+    std::string lm_metric = *(std::string *)v;
+    if (lm_metric != "ndcg")
     {
-        fprintf(stderr, "invalid \"training_sample_format\", it should be \"liblinear\" or \"gbdt\"\n");
+        fprintf(stderr, "invalid \"lm_metric\", it should be \"ndcg\"\n");
         exit(1);
     }
 }
@@ -139,7 +149,7 @@ private:
     }
 
 public:
-    int load(const char * filename, TreeParam * param)
+    int load(const char * filename, TreeParam * param, int type)
     {
         assert(filename);
         assert(param);
@@ -154,7 +164,7 @@ public:
         ScopedPtrMalloc<char *> line_guard(line);
         char * to_read = line;
 
-        TreeParamSpec specs[] =
+        TreeParamSpec gbdt_specs[] =
         {
             DECLARE_PARAM(param, int, verbose),
             DECLARE_PARAM(param, size_t, max_level),
@@ -162,13 +172,39 @@ public:
             DECLARE_PARAM2(param, size_t, min_values_in_leaf),
             DECLARE_PARAM(param, size_t, tree_number),
             DECLARE_PARAM(param, double, learning_rate),
-            DECLARE_PARAM(param, double, sample_rate),
-            DECLARE_PARAM2(param, std_string, loss),
             DECLARE_PARAM(param, std_string, training_sample),
             DECLARE_PARAM2(param, std_string, training_sample_format),
             DECLARE_PARAM(param, std_string, model),
+            DECLARE_PARAM(param, double, gbdt_sample_rate),
+            DECLARE_PARAM2(param, std_string, gbdt_loss),
         };
-        size_t spec_length = sizeof(specs)/sizeof(specs[0]);
+        TreeParamSpec lm_specs[] =
+        {
+            DECLARE_PARAM(param, int, verbose),
+            DECLARE_PARAM(param, size_t, max_level),
+            DECLARE_PARAM(param, size_t, max_leaf_number),
+            DECLARE_PARAM2(param, size_t, min_values_in_leaf),
+            DECLARE_PARAM(param, size_t, tree_number),
+            DECLARE_PARAM(param, double, learning_rate),
+            DECLARE_PARAM(param, std_string, training_sample),
+            DECLARE_PARAM2(param, std_string, training_sample_format),
+            DECLARE_PARAM(param, std_string, model),
+            DECLARE_PARAM2(param, std_string, lm_metric),
+            DECLARE_PARAM(param, size_t, lm_ndcg_k),
+        };
+
+        TreeParamSpec * specs;
+        size_t spec_length;
+        if (type == 0)
+        {
+            specs = gbdt_specs;
+            spec_length = sizeof(gbdt_specs)/sizeof(gbdt_specs[0]);
+        }
+        else
+        {
+            specs = lm_specs;
+            spec_length = sizeof(lm_specs)/sizeof(lm_specs[0]);
+        }
 
         for (;;)
         {
@@ -197,8 +233,7 @@ public:
 
                 if (add_key_value(param, specs, spec_length, key, value) == -1)
                 {
-                    fprintf(stderr, "invalid key or value:\"%s\", \"%s\"\n", key.c_str(), value.c_str());
-                    return -1;
+                    fprintf(stderr, "WARNING: invalid key or value:\"%s\", \"%s\"\n", key.c_str(), value.c_str());
                 }
             }
         }
@@ -217,10 +252,8 @@ public:
     }
 };
 
-int parse_tree_param(int argc, char ** argv, TreeParam * param)
+static int parse_tree_param(int argc, char ** argv, TreeParam * param, int type)
 {
-    assert(param);
-
     std::string config_filename;
     for (int i=1; i<argc; i++)
     {
@@ -248,5 +281,15 @@ int parse_tree_param(int argc, char ** argv, TreeParam * param)
     }
 
     TreeParamLoader loader;
-    return loader.load(config_filename.c_str(), param);
+    return loader.load(config_filename.c_str(), param, type);
+}
+
+int gbdt_parse_tree_param(int argc, char ** argv, TreeParam * param)
+{
+    return parse_tree_param(argc, argv, param, 0);
+}
+
+int lm_parse_tree_param(int argc, char ** argv, TreeParam * param)
+{
+    return parse_tree_param(argc, argv, param, 1);
 }

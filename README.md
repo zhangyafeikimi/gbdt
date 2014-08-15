@@ -21,7 +21,7 @@ Predicting
 
 Configuration File
 ------------------
-###An Example
+###An Example for gbdt-train/gbdt-predict
 
 >verbose = 1
 
@@ -35,15 +35,39 @@ Configuration File
 
 >learning_rate = 0.1
 
->sample_rate = 0.9
+>training_sample = input
 
->loss = ls
+>training_sample_format = liblinear
+
+>model = output.json
+
+>gbdt_sample_rate = 0.9
+
+>gbdt_loss = ls
+
+###An Example for lm-train/lm-predict
+
+>verbose = 1
+
+>max_level = 5
+
+>max_leaf_number = 20
+
+>min_values_in_leaf = 10
+
+>tree_number = 400
+
+>learning_rate = 0.1
 
 >training_sample = input
 
 >training_sample_format = liblinear
 
 >model = output.json
+
+>lm_metric = ndcg
+
+>lm_ndcg_k = 5
 
 ###Specification
 
@@ -70,27 +94,11 @@ Number of trees.
 ####learning_rate
 Learning rate, should be in [0.0, 1.0], defined at **Friedman (March 1999)**.
 
-####sample_rate
-GBDT Sample rate, should be in [0.0, 1.0], defined at **Friedman (March 1999)**.
-
-**LambdaMART ignores it.**
-
-####loss
-GBDT loss type, can be "ls", "lad" or "logistic".
-
-LS/LAD loss is suitable for 0/1 or -1/1 classification and regression.
-
-Logistic loss is only suitable for -1/1 binary classification.
-
-LS, LAD and logistic loss are defined at **Friedman (February 1999)**
-
-**LambdaMART ignores it.**
-
 ####training_sample
 File name of training samples.
 
 ####training_sample_format
-GBDT training sample format, can be "liblinear" or "gbdt".
+Training sample format, can be "liblinear" or "gbdt".
 
 **gbdt-train/gbdt-predict** is fully compatible with [liblinear](http://www.csie.ntu.edu.tw/~cjlin/liblinear/)/[libsvm](http://www.csie.ntu.edu.tw/~cjlin/libsvm/) format. An example is:
 
@@ -137,7 +145,9 @@ An example of gbdt format is:
 
 > Feature weights.
 
-**LambdaMART ignores it.** Because LambdaMART uses a [LECTOR 4.0](http://research.microsoft.com/en-us/um/beijing/projects/letor//letor4dataset.aspx) format.
+**lm-train/lm-predict** don't use it now, because only a [LECTOR 4.0](http://research.microsoft.com/en-us/um/beijing/projects/letor//letor4dataset.aspx) format is supported.
+
+But keep it for future usage.
 
 An example of LECTOR 4.0 format is:
 
@@ -152,6 +162,32 @@ An example of LECTOR 4.0 format is:
 ####model
 File name of the model, the output for "gbdt-train/lm-train" and the input for "gbdt-predict/lm-predict".
 It is in json and very easy to understand.
+
+####gbdt_sample_rate
+GBDT Sample rate, should be in [0.0, 1.0], defined at **Friedman (March 1999)**.
+
+**lm-train/lm-predict ignores it.**
+
+####gbdt_loss
+GBDT loss type, can be "ls", "lad" or "logistic".
+
+LS/LAD loss is suitable for 0/1 or -1/1 classification and regression.
+
+Logistic loss is only suitable for -1/1 binary classification.
+
+LS, LAD and logistic loss are defined at **Friedman (February 1999)**
+
+**lm-train/lm-predict ignores it.**
+
+####lm_metric
+LambdaMART metric, can be "ndcg".
+
+**gbdt-train/gbdt-predict ignores it.**
+
+####lm_ndcg_k
+When lm_metric is "ndcg", ndcg@k is the real metric used, where k=lm_ndcg_k.
+
+**gbdt-train/gbdt-predict ignores it.**
 
 Others
 -----
