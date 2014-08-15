@@ -16,7 +16,7 @@ int main()
     unsorted.push_back(4.0);
     unsorted.push_back(10.0);
 
-    sort_indices(unsorted, &indices, std::greater<double>());
+    sort_indices(unsorted, &indices, std::greater_equal<double>());
 
     for (size_t i=0; i<indices.size(); i++)
         printf("%f\n", unsorted[indices[i]]);
