@@ -19,6 +19,9 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "gbdt-benchmark", "gbdt-benc
 	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "lm-train", "lm-train.vcxproj", "{E4F7A6F7-C332-4591-B391-E78537FE91DA}"
+	ProjectSection(ProjectDependencies) = postProject
+		{3E841CBD-D279-40F5-9AE5-09C56D7A901C} = {3E841CBD-D279-40F5-9AE5-09C56D7A901C}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

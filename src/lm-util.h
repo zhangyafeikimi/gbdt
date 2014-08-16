@@ -50,7 +50,7 @@ private:
     const size_t row_;
 
 public:
-    SymmetricMatrix(size_t row)
+    explicit SymmetricMatrix(size_t row)
         : row_(row)
     {
         m_.resize((row_ + 1) * row_ / 2);

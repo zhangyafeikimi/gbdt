@@ -21,5 +21,9 @@ int main()
     for (size_t i=0; i<indices.size(); i++)
         printf("%f\n", unsorted[indices[i]]);
 
+    SymmetricMatrixD delta(indices.size());
+    NDCGScorer ndcg3(3);
+    ndcg3.get_delta(indices, &delta);
+
     return 0;
 }
