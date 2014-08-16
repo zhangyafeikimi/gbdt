@@ -4,7 +4,6 @@
 #include "lm-util.h"
 #include <vector>
 
-// We assume labels are integers, actually they are in LECTOR 4.0.
 class NDCGScorer
 {
 private:

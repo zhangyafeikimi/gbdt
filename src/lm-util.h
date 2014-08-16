@@ -37,7 +37,7 @@ void sort_indices(
 {
     indices->clear();
     indices->reserve(unsorted_size);
-    for (size_t i=0; i!=unsorted_size; i++)
+    for (size_t i=0; i<unsorted_size; i++)
         indices->push_back(i);
 
     std::sort(indices->begin(), indices->end(),
@@ -57,7 +57,6 @@ public:
         : row_(0) {}
 
     explicit SymmetricMatrix(size_t row)
-        : row_(row)
     {
         resize(row);
     }

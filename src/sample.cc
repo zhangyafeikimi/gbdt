@@ -448,7 +448,7 @@ private:
         xy->weight() = 1.0;
 
         // y
-        // ensure labels are integers, and then converted into doubles
+        // We assume labels are integers, actually they are in LECTOR 4.0.
         long label = strtol(cur, &end, 10);
         if (errno == ERANGE || cur == end)
         {
