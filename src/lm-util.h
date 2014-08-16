@@ -7,15 +7,17 @@
 template <class T, class Predicator>
 struct SortIndicesHelper
 {
-    const std::vector<T>& unsorted;
-    std::vector<size_t> * indices;
+    const T * const unsorted;
+    const size_t unsorted_size;
+    std::vector<size_t> * const indices;
     const Predicator& predicator;
 
     SortIndicesHelper(
-        const std::vector<T>& _unsorted,
+        const T * _unsorted,
+        size_t _unsorted_size,
         std::vector<size_t> * _indices,
         const Predicator& _predicator)
-        : unsorted(_unsorted), indices(_indices), predicator(_predicator) {}
+        : unsorted(_unsorted), unsorted_size(_unsorted_size), indices(_indices), predicator(_predicator) {}
 
     bool operator()(const size_t a, const size_t b) const
     {
@@ -28,17 +30,18 @@ struct SortIndicesHelper
 // 'unsorted[(*indices)[i]]' is sorted.
 template <class T, class Predicator>
 void sort_indices(
-    const std::vector<T>& unsorted,
+    const T * unsorted,
+    size_t unsorted_size,
     std::vector<size_t> * indices,
     const Predicator& predicator)
 {
     indices->clear();
-    indices->reserve(unsorted.size());
-    for (size_t i=0, s=unsorted.size(); i!=s; i++)
+    indices->reserve(unsorted_size);
+    for (size_t i=0; i!=unsorted_size; i++)
         indices->push_back(i);
 
     std::sort(indices->begin(), indices->end(),
-        SortIndicesHelper<T, Predicator>(unsorted, indices, predicator));
+        SortIndicesHelper<T, Predicator>(unsorted, unsorted_size, indices, predicator));
 }
 
 // T is always double
@@ -47,13 +50,22 @@ class SymmetricMatrix
 {
 private:
     std::vector<T> m_;
-    const size_t row_;
+    size_t row_;
 
 public:
+    SymmetricMatrix()
+        : row_(0) {}
+
     explicit SymmetricMatrix(size_t row)
         : row_(row)
     {
-        m_.resize((row_ + 1) * row_ / 2);
+        resize(row);
+    }
+
+    void resize(size_t row)
+    {
+        m_.resize((row + 1) * row / 2);
+        row_ = row;
     }
 
     T& at(size_t i, size_t j)

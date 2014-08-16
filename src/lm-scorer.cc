@@ -43,7 +43,7 @@ double NDCGScorer::get_ideal_dcg(const std::vector<size_t>& labels, size_t top_k
 {
     std::vector<size_t> sorted_labels = labels;
     double dcg = 0.0;
-    std::sort(sorted_labels.begin(), sorted_labels.end(), std::greater_equal<size_t>());
+    std::sort(sorted_labels.begin(), sorted_labels.end(), std::greater<size_t>());
     for (size_t i=0; i<top_k; i++)
         dcg += gain(sorted_labels[i]) * discount(i);
     return dcg;
@@ -54,6 +54,7 @@ void NDCGScorer::get_delta(const std::vector<size_t>& labels, SymmetricMatrixD *
     size_t size = labels.size();
     size_t top_k = (size > k_) ? k_ : size;
     double ideal_dcg = get_ideal_dcg(labels, top_k);
+    delta->resize(size);
     for (size_t i=0; i<top_k; i++)
     {
         for (size_t j=i+1; j<size; j++)

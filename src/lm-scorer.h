@@ -4,6 +4,7 @@
 #include "lm-util.h"
 #include <vector>
 
+// We assume labels are integers, actually they are in LECTOR 4.0.
 class NDCGScorer
 {
 private:
@@ -18,20 +19,8 @@ private:
 public:
     explicit NDCGScorer(size_t k);
     void get_delta(const std::vector<size_t>& labels, SymmetricMatrixD * delta) const;
-
-    // NOTE: We assume labels are integers, actually they are in LECTOR 4.0.
-    // So we want LabelOfT to return an integer, although labels in memory are double.
-    template <class T, class LabelOfT>
-    void get_delta(const T * sequence, size_t size,
-        const LabelOfT& label_of_t,
-        SymmetricMatrixD * delta) const
-    {
-        std::vector<size_t> labels;
-        for (size_t i=0; i<size; i++)
-            labels.push_back(label_of_t(sequence[i]));
-
-        return get_delta(labels, delta);
-    }
 };
+
+// TODO implement other metrics to use param().lm_metric
 
 #endif// GBDT_LAMBDA_MART_SCORER_H

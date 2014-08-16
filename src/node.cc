@@ -100,7 +100,6 @@ void TreeNodeBase::sample_and_update_response(
     const TreeParam& param,
     const std::vector<double>& full_fx)
 {
-    // TODO
     assert(is_root());
     XYSetRef& xy_set = set();
     if (param.gbdt_sample_rate >= 1.0)

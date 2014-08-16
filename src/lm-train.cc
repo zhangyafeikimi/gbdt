@@ -1,29 +1,48 @@
 #include "lm.h"
-#include "lm-scorer.h"
-#include "lm-util.h"
+#include "sample.h"
+#include "x.h"
 #include <stdio.h>
-#include <functional>
 
 int main()
 {
-    std::vector<double> unsorted;
-    std::vector<size_t> indices;
+    XYSet set;
+    std::vector<size_t> n_samples_per_query;
+    load_lector4("test.txt", &set, &n_samples_per_query);
 
-    unsorted.push_back(1.0);
-    unsorted.push_back(5.0);
-    unsorted.push_back(3.0);
-    unsorted.push_back(2.0);
-    unsorted.push_back(4.0);
-    unsorted.push_back(10.0);
+    TreeParam param;
+    param.verbose = 1;
+    param.max_level = 5;
+    param.max_leaf_number = 20;
+    param.min_values_in_leaf = 10;
+    param.tree_number = 400;
+    param.learning_rate = 0.01;
 
-    sort_indices(unsorted, &indices, std::greater_equal<double>());
+    param.gbdt_sample_rate = 1.0;
+    param.lm_metric = "ndcg";
+    param.lm_ndcg_k = 5;
 
-    for (size_t i=0; i<indices.size(); i++)
-        printf("%f\n", unsorted[indices[i]]);
+    {
+        LambdaMARTTrainer trainer(set, n_samples_per_query, param);
+        trainer.train();
 
-    SymmetricMatrixD delta(indices.size());
-    NDCGScorer ndcg3(3);
-    ndcg3.get_delta(indices, &delta);
+        FILE * output = xfopen("output.lambdamart.json", "w");
+        trainer.save_json(output);
+        fclose(output);
+
+        LambdaMARTPredictor predictor;
+        FILE * input = xfopen("output.lambdamart.json", "r");
+        predictor.load_json(input);
+        fclose(input);
+
+        for (size_t i=0, s=set.size(); i<s; i++)
+        {
+            const XY& xy = set.get(i);
+            const CompoundValueVector& X = xy.X();
+            double y = xy.y();
+            printf("score=%lf=%lf, label=%d\n",
+                trainer.predict(X), predictor.predict(X), (int)y);
+        }
+    }
 
     return 0;
 }

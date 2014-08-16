@@ -108,6 +108,9 @@ public:
     std::vector<CompoundValueVector>& x_values() {return x_values_;}
     const std::vector<CompoundValueVector>& x_values() const {return x_values_;}
 
+    std::vector<XY>& sample() {return samples_;}
+    const std::vector<XY>& sample() const {return samples_;}
+
     size_t get_x_type_size() const {return spec_.get_x_type_size();}
     kXType get_x_type(size_t i) const {return spec_.get_x_type(i);}
     void add_x_type(kXType xtype) {spec_.add_x_type(xtype);}
@@ -149,6 +152,9 @@ public:
 
     const std::vector<CompoundValueVector> *& x_values() {return x_values_;}
     const std::vector<CompoundValueVector> * x_values() const {return x_values_;}
+
+    std::vector<const XY *>& sample() {return samples_;}
+    const std::vector<const XY *>& sample() const {return samples_;}
 
     size_t get_x_type_size() const {return spec_->get_x_type_size();}
     kXType get_x_type(size_t i) const {return spec_->get_x_type(i);}
