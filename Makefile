@@ -3,7 +3,7 @@ CXX = g++
 AR = ar
 RANLIB = ranlib
 CPPFLAGS = -Irapidjson-0.11/include
-CFLAGS = -Wall -g
+CFLAGS = -Wall -g -O3
 CXXFLAGS = $(CFLAGS)
 LIBS =
 
