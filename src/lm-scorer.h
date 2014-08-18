@@ -17,7 +17,12 @@ private:
 
 public:
     explicit NDCGScorer(size_t k);
+    size_t get_cutoff() const {return k_;}
     void get_delta(const std::vector<size_t>& labels, SymmetricMatrixD * delta) const;
+    void get_score(const std::vector<size_t>& labels,
+        double * ndcg,
+        double * dcg,
+        double * idcg) const;
 };
 
 // TODO implement other metrics to use param().lm_metric

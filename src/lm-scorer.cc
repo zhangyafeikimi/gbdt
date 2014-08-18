@@ -1,4 +1,5 @@
 #include "lm-scorer.h"
+#include "sample.h"
 #include <math.h>
 #include <algorithm>
 #include <functional>
@@ -53,6 +54,7 @@ void NDCGScorer::get_delta(const std::vector<size_t>& labels, SymmetricMatrixD *
 {
     size_t size = labels.size();
     size_t top_k = (size > k_) ? k_ : size;
+    // TODO ideal_dcg can be cached in training set.
     double ideal_dcg = get_ideal_dcg(labels, top_k);
     delta->resize(size);
     for (size_t i=0; i<top_k; i++)
@@ -66,5 +68,32 @@ void NDCGScorer::get_delta(const std::vector<size_t>& labels, SymmetricMatrixD *
                     );
             }
         }
+    }
+}
+
+void NDCGScorer::get_score(const std::vector<size_t>& labels,
+                           double * ndcg,
+                           double * dcg,
+                           double * idcg) const
+{
+    size_t size = labels.size();
+    size_t top_k = (size > k_) ? k_ : size;
+    double _idcg = get_ideal_dcg(labels, top_k);
+
+    double _dcg = 0.0;
+    for (size_t i=0; i<top_k; i++)
+        _dcg += gain(labels[i]) * discount(i);
+
+    if (_dcg < EPS && _idcg < EPS)
+    {
+        *ndcg = 0.0;
+        *dcg = _dcg;
+        *idcg = _idcg;
+    }
+    else
+    {
+        *ndcg = _dcg / _idcg;
+        *dcg = _dcg;
+        *idcg = _idcg;
     }
 }

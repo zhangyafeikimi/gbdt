@@ -33,7 +33,7 @@ private:
     void dump_feature_importance() const;
 public:
     GBDTTrainer(const XYSet& set, const TreeParam& param);
-    virtual ~GBDTTrainer() {}
+    virtual ~GBDTTrainer();
     void train();
     void save_json(FILE * fp) const;
 };

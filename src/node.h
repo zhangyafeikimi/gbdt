@@ -133,6 +133,7 @@ public:
         double * y0) const = 0;
 
 protected:
+    virtual TreeNodeBase * fork() const;
     virtual void add_data(const XY& xy, const TreeNodeBase * parent, size_t _index);
     virtual void clear();
     virtual void update_response(const std::vector<double>& fx) = 0;

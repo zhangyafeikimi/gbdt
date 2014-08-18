@@ -56,11 +56,6 @@ public:
     SymmetricMatrix()
         : row_(0) {}
 
-    explicit SymmetricMatrix(size_t row)
-    {
-        resize(row);
-    }
-
     void resize(size_t row)
     {
         m_.resize((row + 1) * row / 2);

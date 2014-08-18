@@ -11,7 +11,9 @@ private:
     std::vector<double> weights_;
     // for root
     const std::vector<size_t> * n_samples_per_query_;
+    const NDCGScorer * scorer_;
 
+    // all weights are useless in LambdaMART.
     static double mean_y(const XYSet& full_set)
     {
         double total_y  = 0.0;
@@ -32,29 +34,23 @@ private:
     };
 
 public:
+    const std::vector<size_t> *& n_samples_per_query() {return n_samples_per_query_;}
+    const NDCGScorer *& scorer() {return scorer_;}
+
     LambdaMARTNode(const TreeParam& param, size_t level)
         : TreeNodeBase(param, level), n_samples_per_query_(0)
     {
         assert(param.gbdt_sample_rate >= 1.0);
     }
 
-    LambdaMARTNode * train(
-        const XYSet& full_set,
-        const std::vector<size_t>& n_samples_per_query,
-        const TreeParam& param,
-        std::vector<double> * full_fx) const
-    {
-        LambdaMARTNode * root = clone(param, 0);
-        root->n_samples_per_query_ = &n_samples_per_query;
-        root->do_train(full_set, param, full_fx);
-        return root;
-    }
-
     virtual LambdaMARTNode * clone(
         const TreeParam& param,
         size_t level) const
     {
-        return new LambdaMARTNode(param, level);
+        LambdaMARTNode * node = new LambdaMARTNode(param, level);
+        node->n_samples_per_query_ = this->n_samples_per_query_;
+        node->scorer_ = this->scorer_;
+        return node;
     }
 
     virtual void initial_fx(const XYSet& full_set,
@@ -93,9 +89,7 @@ protected:
         response_.resize(xy_set.size(), 0.0);
         weights_.resize(xy_set.size(), 0.0);
 
-        size_t ndcg_k = param().lm_ndcg_k;
-        const NDCGScorer ndcg_scorer(ndcg_k);
-
+        size_t cutoff = scorer_->get_cutoff();
         size_t begin = 0;
         for (size_t i=0, s=n_samples_per_query_->size(); i<s; i++)
         {
@@ -106,13 +100,12 @@ protected:
             // sort 'results'
             std::vector<size_t> indices;
             sort_indices(results, result_size, &indices, XYLabelGreater());
-            // now 'results[indices[j]]'
 
             SymmetricMatrixD delta;
-            std::vector<size_t> labels;
+            std::vector<size_t> labels; labels.reserve(result_size);
             for (size_t j=0; j<result_size; j++)
                 labels.push_back((size_t)results[indices[j]]->y());
-            ndcg_scorer.get_delta(labels, &delta);
+            scorer_->get_delta(labels, &delta);
 
             // 'j', 'k' are indices in 'indices' and 'results[indices[j]]'.
             // 'jj', 'kk' are indices in 'xy_set', 'response_', 'weights_' and 'fx'.
@@ -123,7 +116,7 @@ protected:
                 const XY * xy_j = results[indices[j]];
                 for (size_t k=0; k<result_size; k++)
                 {
-                    if (j>ndcg_k && k>ndcg_k)
+                    if (j > cutoff && k > cutoff)
                         break;
 
                     size_t kk = indices[k] + begin;
@@ -195,9 +188,20 @@ LambdaMARTTrainer::LambdaMARTTrainer(
     const XYSet& set,
     const std::vector<size_t>& n_samples_per_query,
     const TreeParam& param)
-    : full_set_(set), n_samples_per_query_(n_samples_per_query), param_(param), full_fx_()
+    : full_set_(set), param_(param), full_fx_()
 {
-    holder_ = new LambdaMARTNode(param, 0);
+    LambdaMARTNode * holder = new LambdaMARTNode(param, 0);
+    scorer_ = new NDCGScorer(param.lm_ndcg_k);
+    holder->n_samples_per_query() = &n_samples_per_query;
+    holder->scorer() = scorer_;
+
+    holder_ = holder;
+}
+
+LambdaMARTTrainer::~LambdaMARTTrainer()
+{
+    delete scorer_;
+    delete holder_;
 }
 
 void LambdaMARTTrainer::train()
@@ -209,7 +213,7 @@ void LambdaMARTTrainer::train()
     for (size_t i=0; i<param_.tree_number; i++)
     {
         printf("training tree No.%d... ", (int)i);
-        LambdaMARTNode * tree = holder_->train(full_set_, n_samples_per_query_, param_, &full_fx_);
+        TreeNodeBase * tree = holder_->train(full_set_, param_, &full_fx_);
         trees_.push_back(tree);
         printf("OK\n");
     }

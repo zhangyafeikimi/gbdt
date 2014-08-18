@@ -302,6 +302,11 @@ GBDTTrainer::GBDTTrainer(const XYSet& set, const TreeParam& param)
     }
 }
 
+GBDTTrainer::~GBDTTrainer()
+{
+    delete holder_;
+}
+
 double GBDTTrainer::total_loss() const
 {
     return holder_->total_loss(full_set_, full_fx_);

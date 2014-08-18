@@ -8,6 +8,7 @@
 
 class TreeNodeBase;
 class LambdaMARTNode;
+class NDCGScorer;
 
 class LambdaMARTPredictor
 {
@@ -26,16 +27,16 @@ class LambdaMARTTrainer : public LambdaMARTPredictor
 {
 private:
     const XYSet& full_set_;
-    const std::vector<size_t>& n_samples_per_query_;
     const TreeParam& param_;
     std::vector<double> full_fx_;
     const LambdaMARTNode * holder_;
+    const NDCGScorer * scorer_;
 public:
     LambdaMARTTrainer(
         const XYSet& set,
         const std::vector<size_t>& n_samples_per_query,
         const TreeParam& param);
-    virtual ~LambdaMARTTrainer() {}
+    virtual ~LambdaMARTTrainer();
     void train();
     void save_json(FILE * fp) const;
 };
