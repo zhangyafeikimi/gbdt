@@ -63,9 +63,8 @@ void NDCGScorer::get_delta(const std::vector<size_t>& labels, SymmetricMatrixD *
         {
             if (ideal_dcg > 0)
             {
-                delta->at(i, j) = abs(
-                    (gain(labels[i]) - gain(labels[j])) * (discount(i) - discount(j)) / ideal_dcg
-                    );
+                double d = (gain(labels[i]) - gain(labels[j])) * (discount(i) - discount(j)) / ideal_dcg;
+                delta->at(i, j) = fabs(d);
             }
         }
     }

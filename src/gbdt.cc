@@ -160,7 +160,7 @@ public:
         {
             const XY& xy = full_set.get(i);
             double residual = full_set.get(i).y() - full_fx[i];
-            loss += abs(residual) * xy.weight();
+            loss += fabs(residual) * xy.weight();
         }
         return loss;
     }
@@ -178,6 +178,12 @@ protected:
     virtual void update_predicted_y()
     {
         const XYSetRef& xy_set = set();
+        if (xy_set.size() == 0)
+        {
+            y() = 0.0;
+            return;
+        }
+
         std::vector<XW> response_weight;
         for (size_t i=0, s=xy_set.size(); i<s; i++)
         {
@@ -244,13 +250,19 @@ protected:
     virtual void update_predicted_y()
     {
         const XYSetRef& xy_set = set();
+        if (xy_set.size() == 0)
+        {
+            y() = 0.0;
+            return;
+        }
+
         double numerator = 0.0, denominator = 0.0;
         for (size_t i=0, s=xy_set.size(); i<s; i++)
         {
             const XY& xy = xy_set.get(i);
             double weight = xy.weight();
             double response = response_[i];
-            double abs_response = abs(response);
+            double abs_response = fabs(response);
 
             numerator += response * weight;
             denominator += abs_response * (2.0 - abs_response) * weight;

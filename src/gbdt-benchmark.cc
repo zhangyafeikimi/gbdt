@@ -16,7 +16,7 @@ int main()
     param.max_leaf_number = 20;
     param.min_values_in_leaf = 10;
     param.tree_number = 400;
-    param.gbdt_sample_rate = 0.9;
+    param.gbdt_sample_rate = 1.0;
 
     param.learning_rate = 0.025;
     param.gbdt_loss = "logistic";
