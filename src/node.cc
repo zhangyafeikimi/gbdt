@@ -315,9 +315,14 @@ void TreeNodeBase::loss_x(
         }
     }
 
-    if (n_left > EPS)
+    if (y_left < EPS && n_left < EPS)
+        y_left = 0.0;
+    else
         y_left /= n_left;
-    if (n_right > EPS)
+
+    if (y_right < EPS && n_right < EPS)
+        y_right = 0.0;
+    else
         y_right /= n_right;
 
     *_y_left = y_left;

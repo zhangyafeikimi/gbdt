@@ -256,8 +256,10 @@ protected:
             denominator += abs_response * (2.0 - abs_response) * weight;
         }
 
-        // readjust
-        y() = numerator / denominator;
+        if (numerator < EPS && denominator < EPS)
+            y() = 0.0;
+        else
+            y() = numerator / denominator;
     }
 };
 
