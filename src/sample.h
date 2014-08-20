@@ -14,7 +14,7 @@ enum kXType
     kXType_Numerical = 1,
 };
 
-// training sample specification
+// training sample's feature specifications
 class XYSpec
 {
 private:
@@ -32,16 +32,20 @@ class CompoundValue
 private:
     union
     {
-        double d;
-        int i;
+        double d_;
+        int i_;
+        size_t label_;
     } value_;
 
 public:
-    CompoundValue() {value_.d = 0.0;}
-    double& d() {return value_.d;}
-    double d() const {return value_.d;}
-    int& i() {return value_.i;}
-    int i() const {return value_.i;}
+    CompoundValue() {value_.d_ = 0.0;}
+
+    double& d() {return value_.d_;}
+    double d() const {return value_.d_;}
+    int& i() {return value_.i_;}
+    int i() const {return value_.i_;}
+    size_t& label() {return value_.label_;}
+    size_t label() const {return value_.label_;}
 };
 
 typedef std::vector<CompoundValue> CompoundValueVector;
@@ -74,8 +78,8 @@ struct CompoundValueIntEqual
 class XY
 {
 private:
-    CompoundValueVector X_;
-    double y_;
+    CompoundValueVector X_;// X, features
+    CompoundValue y_;// y or label
     double weight_;
 
 public:
@@ -86,11 +90,27 @@ public:
     void add_x(const CompoundValue& _x) {X_.push_back(_x);}
     void resize_x(size_t s) {X_.resize(s);}
 
-    double& y() {return y_;}
-    double y() const {return y_;}
+    double& y() {return y_.d();}
+    double y() const {return y_.d();}
+
+    size_t& label() {return y_.label();}
+    size_t label() const {return y_.label();}
 
     double& weight() {return weight_;}
     double weight() const {return weight_;}
+};
+
+struct XYLabelGreater
+{
+    bool operator()(const XY& a, const XY& b) const
+    {
+        return a.label() > b.label();
+    }
+
+    bool operator()(const XY * a, const XY * b) const
+    {
+        return a->label() > b->label();
+    }
 };
 
 // a set of training samples

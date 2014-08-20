@@ -1,5 +1,6 @@
 #include "lm.h"
 #include "lm-scorer.h"
+#include "lm-util.h"
 #include "sample.h"
 #include "x.h"
 #include <stdio.h>
@@ -24,7 +25,7 @@ int main()
     param.max_level = 5;
     param.max_leaf_number = 20;
     param.min_values_in_leaf = 10;
-    param.tree_number = 100;
+    param.tree_number = 200;
     param.learning_rate = 0.01;
 
     param.gbdt_sample_rate = 1.0;

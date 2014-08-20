@@ -85,6 +85,7 @@ private:
         const std::vector<double>& full_fx);
     void build_tree();
     void split();
+    TreeNodeBase * fork() const;
     void split_data(TreeNodeBase * _left, TreeNodeBase * _right) const;
     void shrink();
     void update_fx(const XYSet& full_set, std::vector<double> * full_fx) const;
@@ -133,7 +134,6 @@ public:
         double * y0) const = 0;
 
 protected:
-    virtual TreeNodeBase * fork() const;
     virtual void add_data(const XY& xy, const TreeNodeBase * parent, size_t _index);
     virtual void clear();
     virtual void update_response(const std::vector<double>& fx) = 0;

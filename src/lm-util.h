@@ -44,39 +44,4 @@ void sort_indices(
         SortIndicesHelper<T, Predicator>(unsorted, unsorted_size, indices, predicator));
 }
 
-// T is always double
-template <class T>
-class SymmetricMatrix
-{
-private:
-    std::vector<T> m_;
-    size_t row_;
-
-public:
-    SymmetricMatrix()
-        : row_(0) {}
-
-    void resize(size_t row)
-    {
-        m_.resize((row + 1) * row / 2);
-        row_ = row;
-    }
-
-    T& at(size_t i, size_t j)
-    {
-        if (j > i)
-            return at(j, i);
-        return m_[(i + 1) * i / 2 + j];
-    }
-
-    T at(size_t i, size_t j) const
-    {
-        if (j > i)
-            return at(j, i);
-        return m_[(i + 1) * i / 2 + j];
-    }
-};
-
-typedef SymmetricMatrix<double> SymmetricMatrixD;
-
 #endif// GBDT_LAMBDA_MART_UTIL_H

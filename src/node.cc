@@ -182,6 +182,16 @@ void TreeNodeBase::split()
     split_data(_left, _right);
 }
 
+TreeNodeBase * TreeNodeBase::fork() const
+{
+    const XYSetRef& xy_set = set();
+    TreeNodeBase * child = clone(param(), level() + 1);
+    child->set().spec() = xy_set.spec();
+    child->set().x_values() = xy_set.x_values();
+    child->leaf() = false;
+    return child;
+}
+
 void TreeNodeBase::split_data(TreeNodeBase * _left, TreeNodeBase * _right) const
 {
     const XYSetRef& xy_set = set();
@@ -378,16 +388,6 @@ double TreeNodeBase::total_loss(
     const std::vector<double>& full_fx) const
 {
     return 0.0;
-}
-
-TreeNodeBase * TreeNodeBase::fork() const
-{
-    const XYSetRef& xy_set = set();
-    TreeNodeBase * child = clone(param(), level() + 1);
-    child->set().spec() = xy_set.spec();
-    child->set().x_values() = xy_set.x_values();
-    child->leaf() = false;
-    return child;
 }
 
 void TreeNodeBase::add_data(const XY& xy, const TreeNodeBase * parent, size_t _index)

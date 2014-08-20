@@ -1,5 +1,6 @@
 #include "lm.h"
 #include "lm-scorer.h"
+#include "lm-util.h"
 #include "json.h"
 #include "node.h"
 #include <assert.h>
@@ -8,10 +9,12 @@
 class LambdaMARTNode : public TreeNodeBase
 {
 private:
-    std::vector<double> weights_;
-    // for root
+    // common tree data that will be cloned when 'clone' is called
     const std::vector<size_t> * n_samples_per_query_;
     const NDCGScorer * scorer_;
+
+    // node data that will be divided when node is split.
+    std::vector<double> weights_;
 
     // all weights are useless in LambdaMART.
     static double mean_y(const XYSet& full_set)
@@ -20,18 +23,10 @@ private:
         for (size_t i=0, s=full_set.size(); i<s; i++)
         {
             const XY& xy = full_set.get(i);
-            total_y += xy.y();
+            total_y += (double)xy.label();
         }
         return total_y / full_set.size();
     }
-
-    struct XYLabelGreater
-    {
-        bool operator()(const XY * a, const XY * b) const
-        {
-            return a->y() > b->y();
-        }
-    };
 
 public:
     const std::vector<size_t> *& n_samples_per_query() {return n_samples_per_query_;}
@@ -104,7 +99,7 @@ protected:
             SymmetricMatrixD delta;
             std::vector<size_t> labels; labels.reserve(result_size);
             for (size_t j=0; j<result_size; j++)
-                labels.push_back((size_t)results[indices[j]]->y());
+                labels.push_back(results[indices[j]]->label());
             scorer_->get_delta(labels, &delta);
 
             // 'j', 'k' are indices in 'indices' and 'results[indices[j]]'.
@@ -121,7 +116,7 @@ protected:
 
                     size_t kk = indices[k] + begin;
                     const XY * xy_k = results[indices[k]];
-                    if (xy_j->y() > xy_k->y())
+                    if (xy_j->label() > xy_k->label())
                     {
                         double delta_jk = delta.at(j, k);
                         if (delta_jk > 0.0)

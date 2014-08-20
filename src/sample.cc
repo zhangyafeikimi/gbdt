@@ -443,14 +443,14 @@ private:
         xy->weight() = 1.0;
 
         // y
-        // We assume labels are integers, actually they are in LECTOR 4.0.
-        long label = strtol(cur, &end, 10);
-        if (errno == ERANGE || cur == end)
+        // Labels in LECTOR 4.0 are integers.
+        long _label = strtol(cur, &end, 10);
+        if (errno == ERANGE || cur == end || _label < 0)
         {
             fprintf(stderr, "invalid y label\n");
             return -1;
         }
-        xy->y() = (double)label;
+        xy->label() = (size_t)_label;
         cur = end + 1;
         skip_space(cur);
 
