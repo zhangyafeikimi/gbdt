@@ -38,7 +38,7 @@ int main()
             const XY& xy = set.get(i);
             const CompoundValueVector& X = xy.X();
             double y = xy.y();
-            printf("p(y=1|x)=%lf=%lf, y=%lf\n",
+            printf("p(y=1|x)=%lf=%lf, y=%1.0lf\n",
                 trainer.predict_logistic(X), predictor.predict_logistic(X), y);
         }
     }

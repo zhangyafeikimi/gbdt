@@ -1,6 +1,7 @@
 #ifndef GBDT_LAMBDA_MART_SCORER_H
 #define GBDT_LAMBDA_MART_SCORER_H
 
+#include <stddef.h>
 #include <vector>
 
 // T is always double

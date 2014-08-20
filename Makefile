@@ -7,7 +7,7 @@ CFLAGS = -Wall -g -O3
 CXXFLAGS = $(CFLAGS)
 LIBS =
 
-all: libgbdt.a gbdt-train gbdt-predict gbdt-benchmark
+all: libgbdt.a gbdt-train gbdt-predict gbdt-benchmark lm-benchmark
 
 libgbdt.a: src/gbdt.o src/json.o src/lm.o src/lm-scorer.o src/node.o src/param.o src/sample.o src/x.o
 	$(AR) -rc $@ $?
@@ -22,8 +22,11 @@ gbdt-predict: src/gbdt-predict.o libgbdt.a
 gbdt-benchmark: src/gbdt-benchmark.o libgbdt.a
 	$(CXX) $(LIBS) -o $@ $?
 
+lm-benchmark: src/lm-benchmark.o libgbdt.a
+	$(CXX) $(LIBS) -o $@ $?
+
 %.o: %.cc
 	$(CXX) $(CPPFLAGS) $(CFLAGS) -c -o $@ $<
 
 clean:
-	rm -f src/*.o *.o *.a *.exe gbdt-train gbdt-predict gbdt-benchmark
+	rm -f src/*.o *.o *.a *.exe *-train *-predict *-benchmark
