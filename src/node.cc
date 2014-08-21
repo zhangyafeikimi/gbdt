@@ -4,9 +4,9 @@
 #include <limits>
 #include <list>
 
-#if defined USE_10000_RANDOM
+#if defined ENABLE_10000_RANDOM
 // If we want to get a deterministic sequence of random number,
-// turn on macro "USE_10000_RANDOM".
+// turn on macro "ENABLE_10000_RANDOM".
 class Rand01
 {
 private:

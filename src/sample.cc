@@ -86,7 +86,7 @@ private:
         CompoundValue x;
 
         // weight is always 1.0 for liblinear
-        xy->weight() = 1.0;
+        xy->set_weight(1.0);
 
         // y
         if (strncmp(cur, "+1", 2) == 0)
@@ -289,7 +289,7 @@ private:
         if (strncmp(cur, "w:", 2) == 0)
         {
             cur += 2;
-            xy->weight() = strtod(cur, &end);
+            xy->set_weight(strtod(cur, &end));
             if (errno == ERANGE || cur == end)
             {
                 fprintf(stderr, "invalid weight\n");
@@ -300,7 +300,7 @@ private:
         }
         else
         {
-            xy->weight() = 1.0;
+            xy->set_weight(1.0);
         }
 
         // X
@@ -440,7 +440,7 @@ private:
         CompoundValue x;
 
         // weight is always 1.0 for LECTOR 4.0
-        xy->weight() = 1.0;
+        xy->set_weight(1.0);
 
         // y
         // Labels in LECTOR 4.0 are integers.

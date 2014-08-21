@@ -80,7 +80,9 @@ class XY
 private:
     CompoundValueVector X_;// X, features
     CompoundValue y_;// y or label
+#if !defined DISABLE_WEIGHT
     double weight_;
+#endif
 
 public:
     size_t get_x_size() const {return X_.size();}
@@ -96,8 +98,13 @@ public:
     size_t& label() {return y_.label();}
     size_t label() const {return y_.label();}
 
-    double& weight() {return weight_;}
+#if defined DISABLE_WEIGHT
+    void set_weight(double weight) {}
+    double weight() const {return 1.0;}
+#else
+    void set_weight(double weight) {weight_ = weight;}
     double weight() const {return weight_;}
+#endif
 };
 
 struct XYLabelGreater
