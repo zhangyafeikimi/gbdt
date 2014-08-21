@@ -1,17 +1,19 @@
 #include "lm-scorer.h"
 #include "sample.h"
+#include <assert.h>
 #include <math.h>
 #include <algorithm>
 #include <functional>
 
 const double NDCGScorer::LOG2 = log((double)2.0);
-std::vector<double> NDCGScorer::gain_cache_;
-std::vector<double> NDCGScorer::discount_cache_;
 
 NDCGScorer::NDCGScorer(size_t k)
-    : k_(k) {}
+    : k_(k)
+{
+    idcg_cache_.reserve(1000);
+}
 
-double NDCGScorer::gain(size_t label)
+double NDCGScorer::gain(size_t label) const
 {
     if (label >= gain_cache_.size())
     {
@@ -25,7 +27,7 @@ double NDCGScorer::gain(size_t label)
     return gain_cache_[label];
 }
 
-double NDCGScorer::discount(size_t index)
+double NDCGScorer::discount(size_t index) const
 {
     if (index >= discount_cache_.size())
     {
@@ -40,7 +42,20 @@ double NDCGScorer::discount(size_t index)
     return discount_cache_[index];
 }
 
-double NDCGScorer::get_ideal_dcg(const std::vector<size_t>& labels, size_t top_k)
+double NDCGScorer::idcg(const std::vector<size_t>& labels, size_t qid, size_t top_k) const
+{
+    if (qid >= idcg_cache_.size())
+    {
+        assert(qid == idcg_cache_.size());
+        double _idcg = idcg(labels, top_k);
+        idcg_cache_.push_back(_idcg);
+        return _idcg;
+    }
+
+    return idcg_cache_[qid];
+}
+
+double NDCGScorer::idcg(const std::vector<size_t>& labels, size_t top_k) const
 {
     std::vector<size_t> sorted_labels = labels;
     double dcg = 0.0;
@@ -50,49 +65,64 @@ double NDCGScorer::get_ideal_dcg(const std::vector<size_t>& labels, size_t top_k
     return dcg;
 }
 
-void NDCGScorer::get_delta(const std::vector<size_t>& labels, SymmetricMatrixD * delta) const
+void NDCGScorer::get_delta_with_idcg(
+    const std::vector<size_t>& labels,
+    double _idcg,
+    size_t top_k,
+    SymmetricMatrixD * delta) const
 {
     size_t size = labels.size();
-    size_t top_k = (size > k_) ? k_ : size;
-    // TODO ideal_dcg can be cached in training set.
-    double ideal_dcg = get_ideal_dcg(labels, top_k);
     delta->resize(size);
     for (size_t i=0; i<top_k; i++)
     {
         for (size_t j=i+1; j<size; j++)
         {
-            if (ideal_dcg > 0)
+            if (_idcg > 0.0)
             {
-                double d = (gain(labels[i]) - gain(labels[j])) * (discount(i) - discount(j)) / ideal_dcg;
+                double d = (gain(labels[i]) - gain(labels[j])) * (discount(i) - discount(j)) / _idcg;
                 delta->at(i, j) = fabs(d);
             }
         }
     }
 }
 
-void NDCGScorer::get_score(const std::vector<size_t>& labels,
-                           double * ndcg,
-                           double * dcg,
-                           double * idcg) const
+void NDCGScorer::get_delta(const std::vector<size_t>& labels, SymmetricMatrixD * delta) const
 {
     size_t size = labels.size();
     size_t top_k = (size > k_) ? k_ : size;
-    double _idcg = get_ideal_dcg(labels, top_k);
+    double _idcg = idcg(labels, top_k);
+    get_delta_with_idcg(labels, _idcg, size, delta);
+}
+
+void NDCGScorer::get_delta(const std::vector<size_t>& labels, size_t qid, SymmetricMatrixD * delta) const
+{
+    size_t size = labels.size();
+    size_t top_k = (size > k_) ? k_ : size;
+    double _idcg = idcg(labels, qid, top_k);
+    get_delta_with_idcg(labels, _idcg, size, delta);
+}
+
+void NDCGScorer::get_score(const std::vector<size_t>& labels,
+                           double * ndcg,
+                           double * dcg,
+                           double * _idcg) const
+{
+    size_t size = labels.size();
+    size_t top_k = (size > k_) ? k_ : size;
+    *_idcg = idcg(labels, top_k);
 
     double _dcg = 0.0;
     for (size_t i=0; i<top_k; i++)
         _dcg += gain(labels[i]) * discount(i);
 
-    if (_dcg < EPS && _idcg < EPS)
+    if (_dcg < EPS && *_idcg < EPS)
     {
         *ndcg = 0.0;
         *dcg = _dcg;
-        *idcg = _idcg;
     }
     else
     {
-        *ndcg = _dcg / _idcg;
+        *ndcg = _dcg / *_idcg;
         *dcg = _dcg;
-        *idcg = _idcg;
     }
 }
