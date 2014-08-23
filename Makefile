@@ -26,7 +26,7 @@ lm-benchmark: src/lm-benchmark.o libgbdt.a
 	$(CXX) $(LIBS) -o $@ $?
 
 %.o: %.cc
-	$(CXX) $(CPPFLAGS) $(CFLAGS) -c -o $@ $<
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c -o $@ $<
 
 clean:
 	rm -f src/*.o *.o *.a *.exe *-train *-predict *-benchmark
