@@ -134,7 +134,6 @@ private:
     int load_line(const char * line, std::string * key, std::string * value)
     {
         std::string line_bak = line;
-        line_bak.resize(line_bak.size() - 1);// pop \n
         size_t pos = line_bak.find_first_of('=');
         if (pos == std::string::npos)
             return -1;
@@ -143,8 +142,17 @@ private:
         trim_assign(&line_bak[0], key);
         trim_assign(&line_bak[pos+1], value);
 
-        if (key->empty() || value->empty())
+        if (key->empty())
+        {
+            fprintf(stderr, "key is empty\n");
             return -1;
+        }
+
+        if (value->empty())
+        {
+            fprintf(stderr, "value is empty\n");
+            return -1;
+        }
         return 0;
     }
 
@@ -224,6 +232,8 @@ public:
             {
                 to_read = line;
 
+                size_t line_length = strlen(line);
+                line[line_length - 1] = 0;// pop \n
                 std::string key, value;
                 if (load_line(line, &key, &value) == -1)
                 {
